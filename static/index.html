@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Veena TTS · Human-1 Duplex</title>
+<title>Svara · Veena · Human-1</title>
 <style>
   :root { --bg:#0d1117; --panel:#161b22; --line:#30363d; --txt:#e6edf3;
-          --mut:#8b949e; --accent:#2f81f7; --ok:#3fb950; --bad:#f85149; --warn:#d29922; }
+          --mut:#8b949e; --accent:#2f81f7; --ok:#3fb950; --bad:#f85149; }
   * { box-sizing:border-box; }
   body { margin:0; font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--txt); }
   .wrap { max-width:1040px; margin:0 auto; padding:24px; }
@@ -20,7 +20,7 @@
   .btn-go { background:var(--accent); color:#fff; } .btn-go:disabled{opacity:.5;cursor:not-allowed;}
   .btn-2 { background:#21262d; color:var(--txt); border:1px solid var(--line); }
   .btn-stop { background:var(--bad); color:#fff; }
-  .tabs { display:flex; gap:8px; margin-bottom:16px; }
+  .tabs { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
   .tab { padding:9px 16px; border:1px solid var(--line); border-radius:8px; background:var(--panel); cursor:pointer; font-size:14px; }
   .tab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
   .tab.disabled { opacity:.4; cursor:not-allowed; }
@@ -28,11 +28,10 @@
   .dot { display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--mut); margin-right:6px; }
   .dot.on{background:var(--ok);} .dot.err{background:var(--bad);}
   table { width:100%; border-collapse:collapse; font-size:13px; }
-  th, td { text-align:right; padding:6px 8px; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; }
-  th:first-child, td:first-child { text-align:left; }
+  th, td { text-align:right; padding:7px 8px; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; }
+  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align:left; }
   thead th { color:var(--mut); font-weight:600; position:sticky; top:0; background:var(--panel); }
   .tbl-wrap { max-height:340px; overflow:auto; border:1px solid var(--line); border-radius:8px; }
-  .pill { font-size:11px; padding:1px 7px; border-radius:10px; background:#21262d; color:var(--mut); }
   .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:12px; }
   .stat { background:#0d1117; border:1px solid var(--line); border-radius:8px; padding:12px; text-align:center; }
   .stat .v{font-size:20px;font-weight:700;} .stat .k{font-size:11px;color:var(--mut);margin-top:2px;}
@@ -44,8 +43,8 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Veena TTS &amp; Human-1 Duplex</h1>
-  <div class="sub" id="banner">Set the server base URL, then pick a tab.</div>
+  <h1>Svara · Veena · Human-1</h1>
+  <div class="sub">Set the server base URL, then pick a tab.</div>
 
   <div class="panel">
     <label>Server Base URL (remote GPU / ngrok URL — blank = this page's origin)</label>
@@ -57,51 +56,87 @@
   </div>
 
   <div class="tabs">
-    <div class="tab active" data-tab="veena">🔊 Veena TTS</div>
+    <div class="tab active" data-tab="svara">🪕 Svara TTS</div>
+    <div class="tab" data-tab="veena">🔊 Veena TTS</div>
     <div class="tab" data-tab="human1">🎙️ Human-1 Duplex</div>
   </div>
 
-  <!-- ===================== VEENA ===================== -->
-  <div id="tab-veena">
+  <!-- ===================== SVARA ===================== -->
+  <div id="tab-svara">
     <div class="panel">
       <div class="row">
-        <div><label>Speaker (voice)</label><select id="vSpeaker"></select></div>
-        <div><label>Temperature</label><input id="vTemp" type="number" step="0.05" value="0.4" /></div>
-        <div><label>Top-p</label><input id="vTopP" type="number" step="0.05" value="0.9" /></div>
+        <div><label>Language</label><select id="sLang"></select></div>
+        <div><label>Gender</label><select id="sGender"></select></div>
+        <div><label>Temperature</label><input id="sTemp" type="number" step="0.05" value="0.6" /></div>
+        <div><label>Top-p</label><input id="sTopP" type="number" step="0.05" value="0.95" /></div>
         <div><label>Play audio</label>
-          <select id="vPlay"><option value="1">on (conn #0)</option><option value="0">off</option></select>
+          <select id="sPlay"><option value="1">on (conn #0)</option><option value="0">off</option></select>
         </div>
       </div>
-      <label>Text</label>
-      <textarea id="vText">नमस्ते, मैं वीणा हूँ। आप कैसे हैं?</textarea>
+      <div class="muted" id="sVoice" style="margin-top:6px"></div>
+      <label>Text (style tags at end: &lt;happy&gt; &lt;sad&gt; &lt;anger&gt; &lt;fear&gt; &lt;clear&gt;)</label>
+      <textarea id="sText">आज सच में अच्छी खबर है — शाम को मिलते हैं! &lt;happy&gt;</textarea>
       <div class="row" style="margin-top:12px">
-        <div><label>Concurrency (parallel WSS connections)</label><input id="vConc" type="number" min="1" max="64" value="1" /></div>
+        <div><label>Concurrency (parallel WSS connections)</label><input id="sConc" type="number" min="1" max="64" value="1" /></div>
         <div style="display:flex;align-items:flex-end;gap:10px">
-          <button id="vSpeak" class="btn-go" style="flex:1">🚀 Run</button>
-          <button id="vClear" class="btn-2">Clear table</button>
+          <button id="sRun" class="btn-go" style="flex:1">🚀 Run</button>
+          <button id="sClear" class="btn-2">Clear</button>
         </div>
       </div>
     </div>
 
     <div class="panel">
       <div class="stats">
-        <div class="stat"><div class="v" id="kTtfa">–</div><div class="k">avg TTFA (ms)</div></div>
-        <div class="stat"><div class="v" id="kGen">–</div><div class="k">avg gen/chunk (ms)</div></div>
-        <div class="stat"><div class="v" id="kRecv">–</div><div class="k">avg recv/chunk (ms)</div></div>
-        <div class="stat"><div class="v" id="kConn">0</div><div class="k">connections done</div></div>
+        <div class="stat"><div class="v" id="kFclGen">–</div><div class="k">avg FCL gen (ms)</div></div>
+        <div class="stat"><div class="v" id="kFclRecv">–</div><div class="k">avg FCL recv (ms)</div></div>
+        <div class="stat"><div class="v" id="kRtf">–</div><div class="k">avg RTF</div></div>
+        <div class="stat"><div class="v" id="kConn">0</div><div class="k">requests done</div></div>
       </div>
       <div class="tbl-wrap">
         <table>
           <thead><tr>
-            <th>conn</th><th>chunk</th><th>gen ms<br><span class="muted">(model, cumul.)</span></th>
-            <th>gen Δ ms<br><span class="muted">(this chunk)</span></th>
-            <th>server ms<br><span class="muted">(≈ gen)</span></th>
-            <th>client recv ms<br><span class="muted">(since submit)</span></th>
-            <th>samples</th>
+            <th>req</th><th>voice</th>
+            <th>FCL gen ms<br><span class="muted">(model→1st chunk)</span></th>
+            <th>FCL recv ms<br><span class="muted">(client→1st chunk)</span></th>
+            <th>RTF</th><th>audio s</th><th>chunks</th><th>total ms</th>
           </tr></thead>
-          <tbody id="vRows"></tbody>
+          <tbody id="sRows"></tbody>
         </table>
       </div>
+      <div class="muted" id="sSummary" style="margin-top:8px"></div>
+    </div>
+  </div>
+
+  <!-- ===================== VEENA ===================== -->
+  <div id="tab-veena" class="hidden">
+    <div class="panel">
+      <div class="row">
+        <div><label>Speaker</label><select id="vSpeaker"></select></div>
+        <div><label>Temperature</label><input id="vTemp" type="number" step="0.05" value="0.4" /></div>
+        <div><label>Top-p</label><input id="vTopP" type="number" step="0.05" value="0.9" /></div>
+        <div><label>Play audio</label><select id="vPlay"><option value="1">on (conn #0)</option><option value="0">off</option></select></div>
+      </div>
+      <label>Text</label>
+      <textarea id="vText">नमस्ते, मैं वीणा हूँ। आप कैसे हैं?</textarea>
+      <div class="row" style="margin-top:12px">
+        <div><label>Concurrency</label><input id="vConc" type="number" min="1" max="64" value="1" /></div>
+        <div style="display:flex;align-items:flex-end;gap:10px">
+          <button id="vRun" class="btn-go" style="flex:1">🚀 Run</button>
+          <button id="vClear" class="btn-2">Clear</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="stats">
+        <div class="stat"><div class="v" id="vkFcl">–</div><div class="k">avg FCL gen (ms)</div></div>
+        <div class="stat"><div class="v" id="vkRecv">–</div><div class="k">avg FCL recv (ms)</div></div>
+        <div class="stat"><div class="v" id="vkRtf">–</div><div class="k">avg RTF</div></div>
+        <div class="stat"><div class="v" id="vkConn">0</div><div class="k">requests done</div></div>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>req</th><th>speaker</th><th>FCL gen ms</th><th>FCL recv ms</th><th>RTF</th><th>audio s</th><th>chunks</th><th>total ms</th></tr></thead>
+        <tbody id="vRows"></tbody>
+      </table></div>
       <div class="muted" id="vSummary" style="margin-top:8px"></div>
     </div>
   </div>
@@ -116,10 +151,7 @@
     <div class="panel">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div><span id="h1Dot" class="dot"></span><span id="h1State">disconnected</span></div>
-        <div>
-          <button id="h1Connect" class="btn-go">▶ Connect &amp; Talk</button>
-          <button id="h1Stop" class="btn-stop hidden">■ Stop</button>
-        </div>
+        <div><button id="h1Connect" class="btn-go">▶ Connect &amp; Talk</button><button id="h1Stop" class="btn-stop hidden">■ Stop</button></div>
       </div>
       <div class="vu"><div id="h1Vu"></div></div>
       <div class="stats" style="margin-top:12px">
@@ -137,8 +169,9 @@
 const $ = (id) => document.getElementById(id);
 const baseHttp = () => { const v=$("baseUrl").value.trim(); return v?v.replace(/\/+$/,""):location.origin; };
 const wsBase = () => baseHttp().replace(/^http/,"ws");
+const avg = (a) => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
 
-// ---- shared AudioContext for playback ----
+// ---- shared AudioContext ----
 let AC=null;
 function ac(){ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)({sampleRate:24000}); return AC; }
 function makePlayer(){ const c=ac(); return { t:c.currentTime, push(int16){
@@ -153,8 +186,7 @@ document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
   if(t.classList.contains("disabled")) return;
   document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
   t.classList.add("active");
-  $("tab-veena").classList.toggle("hidden", t.dataset.tab!=="veena");
-  $("tab-human1").classList.toggle("hidden", t.dataset.tab!=="human1");
+  ["svara","veena","human1"].forEach(n=>$("tab-"+n).classList.toggle("hidden", t.dataset.tab!==n));
 });
 
 // ---- health / config ----
@@ -162,94 +194,112 @@ async function loadHealth(){
   try{
     const h=await (await fetch(baseHttp()+"/health")).json();
     const parts=[];
-    if(h.models?.veena) parts.push(`veena=${h.veena?.loaded?"ready":"loading"} (${h.veena?.device})`);
-    if(h.models?.human1) parts.push(`human1=${h.human1?.loaded?"ready":"loading"} (${h.human1?.device})`);
-    $("health").innerHTML = `<span class="dot ${ (h.veena?.loaded||h.human1?.loaded)?"on":"err"}"></span>${parts.join(" · ")||"no model enabled"}`;
-    // enable/disable tabs
-    document.querySelector('.tab[data-tab="human1"]').classList.toggle("disabled", !h.models?.human1);
-    document.querySelector('.tab[data-tab="veena"]').classList.toggle("disabled", !h.models?.veena);
-    // speakers
+    for(const m of ["svara","veena","human1"]) if(h.models?.[m]) parts.push(`${m}=${h[m]?.loaded?"ready":"loading"}`);
+    $("health").innerHTML = `<span class="dot ${parts.length?"on":"err"}"></span>${parts.join(" · ")||"no model enabled"} · device=${h.svara?.device||h.veena?.device||h.human1?.device||"?"}`;
+    for(const m of ["svara","veena","human1"]) document.querySelector(`.tab[data-tab="${m}"]`).classList.toggle("disabled", !h.models?.[m]);
     const cfg=await (await fetch(baseHttp()+"/config")).json();
+    // svara language/gender
+    const langs = cfg.svara?.languages || h.svara?.languages || ["Hindi"];
+    const gens = cfg.svara?.genders || h.svara?.genders || ["Female","Male"];
+    $("sLang").innerHTML = langs.map(l=>`<option>${l}</option>`).join("");
+    $("sGender").innerHTML = gens.map(g=>`<option>${g}</option>`).join("");
+    const dv = cfg.svara?.default_voice;
+    if(dv){ const m=dv.match(/^(.*) \((.*)\)$/); if(m){ $("sLang").value=m[1]; $("sGender").value=m[2]; } }
+    updateVoiceLabel();
+    // veena speakers
     const spk = cfg.veena?.speakers || ["kavya","agastya","maitri","vinaya"];
     $("vSpeaker").innerHTML = spk.map(s=>`<option>${s}</option>`).join("");
     if(cfg.veena?.default_speaker) $("vSpeaker").value=cfg.veena.default_speaker;
   }catch(e){ $("health").innerHTML=`<span class="dot err"></span>health failed: ${e}`; }
 }
 $("healthBtn").onclick=loadHealth;
+function svaraVoice(){ return `${$("sLang").value} (${$("sGender").value})`; }
+function updateVoiceLabel(){ $("sVoice").textContent = "voice → " + svaraVoice(); }
 window.addEventListener("load", ()=>{ ac(); loadHealth(); });
 
-// ================= VEENA TTS / CONCURRENCY =================
-let connDone=0, allRecv=[], allGen=[], allTtfa=[];
-$("vClear").onclick=()=>{ $("vRows").innerHTML=""; connDone=0; allRecv=[]; allGen=[]; allTtfa=[];
-  $("kTtfa").textContent="–"; $("kGen").textContent="–"; $("kRecv").textContent="–"; $("kConn").textContent="0"; $("vSummary").textContent=""; };
-
-function addRow(conn, idx, h, clientMs){
-  const tr=document.createElement("tr");
-  tr.innerHTML=`<td>#${conn}</td><td>${idx}</td><td>${h.gen_ms}</td><td>${h.gen_delta}</td>`+
-               `<td>${h.server_ms}</td><td>${clientMs.toFixed(1)}</td><td>${h.samples}</td>`;
-  $("vRows").appendChild(tr);
-  $("vRows").parentElement.parentElement.scrollTop=1e9;
-}
-
-function runConn(conn, text, speaker, temp, topp, play){
+// ================= generic Orpheus-TTS runner (Svara / Veena) =================
+// opts: {path, voiceKey, voice, addRow, onDone}
+function runTTS(conn, text, voice, temp, topp, play, path, voiceKey){
   return new Promise((resolve)=>{
-    const url=wsBase()+"/veena";
-    const ws=new WebSocket(url); ws.binaryType="arraybuffer";
+    const ws=new WebSocket(wsBase()+path); ws.binaryType="arraybuffer";
     const player = play ? makePlayer() : null;
-    let submitTs=0, pending=null, first=null, recvs=[], gens=[], n=0;
-    ws.onopen=()=>{ submitTs=performance.now();
-      ws.send(JSON.stringify({type:"tts", req_id:"c"+conn, text, speaker,
-        temperature:parseFloat(temp), top_p:parseFloat(topp)})); };
+    let submitTs=0, pending=null, fclGen=null, fclRecv=null;
+    const payload = {type:"tts", req_id:"c"+conn, text, temperature:parseFloat(temp), top_p:parseFloat(topp)};
+    payload[voiceKey]=voice;
+    ws.onopen=()=>{ submitTs=performance.now(); ws.send(JSON.stringify(payload)); };
     ws.onmessage=(ev)=>{
       if(typeof ev.data==="string"){
         const m=JSON.parse(ev.data);
-        if(m.type==="chunk"){ pending=m; }
+        if(m.type==="chunk"){ pending=m; if(fclGen===null) fclGen=m.gen_ms; }
         else if(m.type==="end"){ ws.close();
-          finishConn(conn, first, gens, recvs); resolve(); }
-        else if(m.type==="error"){ $("vSummary").innerHTML=`<span style="color:var(--bad)">conn#${conn} error: ${m.message}</span>`; ws.close(); resolve(); }
+          resolve({conn, voice, fclGen, fclRecv, rtf:m.rtf, audio_sec:m.audio_sec, chunks:m.chunks, total_ms:m.total_ms}); }
+        else if(m.type==="error"){ ws.close(); resolve({conn, voice, error:m.message}); }
       } else if(pending){
-        const clientMs=performance.now()-submitTs;
-        if(first===null) first=clientMs;
-        recvs.push(clientMs);
-        gens.push(pending.gen_delta);
-        addRow(conn, pending.index, pending, clientMs);
+        if(fclRecv===null) fclRecv=performance.now()-submitTs;
         if(player) player.push(new Int16Array(ev.data));
-        n++; pending=null;
+        pending=null;
       }
     };
-    ws.onerror=()=>{ resolve(); };
-    ws.onclose=()=>{};
+    ws.onerror=()=>resolve({conn, voice, error:"ws error"});
   });
 }
 
-function finishConn(conn, ttfa, gens, recvs){
-  connDone++; $("kConn").textContent=connDone;
-  if(ttfa!=null) allTtfa.push(ttfa);
-  gens.forEach(g=>allGen.push(g));
-  const avg=a=>a.length?(a.reduce((x,y)=>x+y,0)/a.length):null;
-  const at=avg(allTtfa), ag=avg(allGen);
-  if(at!=null) $("kTtfa").textContent=at.toFixed(0);
-  if(ag!=null) $("kGen").textContent=ag.toFixed(1);
-}
+// ================= SVARA =================
+let sFclGen=[], sFclRecv=[], sRtf=[], sDone=0;
+function sClear(){ $("sRows").innerHTML=""; sFclGen=[];sFclRecv=[];sRtf=[];sDone=0;
+  ["kFclGen","kFclRecv","kRtf"].forEach(id=>$(id).textContent="–"); $("kConn").textContent="0"; $("sSummary").textContent=""; }
+$("sClear").onclick=sClear;
+$("sLang").addEventListener("change",updateVoiceLabel); $("sGender").addEventListener("change",updateVoiceLabel);
 
-$("vSpeak").onclick=async ()=>{
-  ac(); await ac().resume();
-  const N=Math.max(1, Math.min(64, parseInt($("vConc").value)||1));
-  const text=$("vText").value, speaker=$("vSpeaker").value, temp=$("vTemp").value, topp=$("vTopP").value;
-  const playOn=$("vPlay").value==="1";
-  $("vSpeak").disabled=true;
-  $("vSummary").textContent=`launching ${N} connection(s)...`;
+function sAddRow(r){
+  const tr=document.createElement("tr");
+  if(r.error){ tr.innerHTML=`<td>#${r.conn}</td><td>${r.voice}</td><td colspan="6" style="color:var(--bad);text-align:left">${r.error}</td>`; }
+  else { tr.innerHTML=`<td>#${r.conn}</td><td>${r.voice}</td><td>${r.fclGen?.toFixed(1)??"–"}</td>`+
+        `<td>${r.fclRecv?.toFixed(1)??"–"}</td><td>${r.rtf??"–"}</td><td>${r.audio_sec??"–"}</td>`+
+        `<td>${r.chunks??"–"}</td><td>${r.total_ms??"–"}</td>`;
+    if(r.fclGen!=null) sFclGen.push(r.fclGen); if(r.fclRecv!=null) sFclRecv.push(r.fclRecv); if(r.rtf!=null) sRtf.push(r.rtf);
+  }
+  $("sRows").appendChild(tr);
+  sDone++; $("kConn").textContent=sDone;
+  const g=avg(sFclGen),rc=avg(sFclRecv),rt=avg(sRtf);
+  if(g!=null)$("kFclGen").textContent=g.toFixed(1); if(rc!=null)$("kFclRecv").textContent=rc.toFixed(1); if(rt!=null)$("kRtf").textContent=rt.toFixed(3);
+}
+$("sRun").onclick=async ()=>{
+  ac(); await ac().resume(); sClear();
+  const N=Math.max(1,Math.min(64,parseInt($("sConc").value)||1));
+  const text=$("sText").value, voice=svaraVoice(), temp=$("sTemp").value, topp=$("sTopP").value, play=$("sPlay").value==="1";
+  $("sRun").disabled=true; $("sSummary").textContent=`launching ${N} request(s)...`;
   const t0=performance.now();
-  const jobs=[]; for(let i=0;i<N;i++) jobs.push(runConn(i, text, speaker, temp, topp, playOn && i===0));
+  const jobs=[]; for(let i=0;i<N;i++) jobs.push(runTTS(i,text,voice,temp,topp,play&&i===0,"/svara","voice").then(sAddRow));
   await Promise.all(jobs);
-  const wall=performance.now()-t0;
-  // overall avg client recv per chunk
-  const rows=[...$("vRows").querySelectorAll("tr")];
-  const recvVals=rows.map(r=>parseFloat(r.children[5].textContent)).filter(x=>!isNaN(x));
-  const avgRecv = recvVals.length? recvVals.reduce((a,b)=>a+b,0)/recvVals.length : null;
-  if(avgRecv!=null) $("kRecv").textContent=avgRecv.toFixed(1);
-  $("vSummary").innerHTML=`done · ${N} connection(s) · ${rows.length} chunks · wall ${wall.toFixed(0)} ms`;
-  $("vSpeak").disabled=false;
+  $("sSummary").innerHTML=`done · ${N} request(s) · wall ${(performance.now()-t0).toFixed(0)} ms`;
+  $("sRun").disabled=false;
+};
+
+// ================= VEENA =================
+let vFcl=[], vRecv=[], vRtfA=[], vDone=0;
+function vClear(){ $("vRows").innerHTML=""; vFcl=[];vRecv=[];vRtfA=[];vDone=0;
+  ["vkFcl","vkRecv","vkRtf"].forEach(id=>$(id).textContent="–"); $("vkConn").textContent="0"; $("vSummary").textContent=""; }
+$("vClear").onclick=vClear;
+function vAddRow(r){
+  const tr=document.createElement("tr");
+  if(r.error){ tr.innerHTML=`<td>#${r.conn}</td><td>${r.voice}</td><td colspan="6" style="color:var(--bad);text-align:left">${r.error}</td>`; }
+  else { tr.innerHTML=`<td>#${r.conn}</td><td>${r.voice}</td><td>${r.fclGen?.toFixed(1)??"–"}</td><td>${r.fclRecv?.toFixed(1)??"–"}</td><td>${r.rtf??"–"}</td><td>${r.audio_sec??"–"}</td><td>${r.chunks??"–"}</td><td>${r.total_ms??"–"}</td>`;
+    if(r.fclGen!=null)vFcl.push(r.fclGen); if(r.fclRecv!=null)vRecv.push(r.fclRecv); if(r.rtf!=null)vRtfA.push(r.rtf); }
+  $("vRows").appendChild(tr); vDone++; $("vkConn").textContent=vDone;
+  const g=avg(vFcl),rc=avg(vRecv),rt=avg(vRtfA);
+  if(g!=null)$("vkFcl").textContent=g.toFixed(1); if(rc!=null)$("vkRecv").textContent=rc.toFixed(1); if(rt!=null)$("vkRtf").textContent=rt.toFixed(3);
+}
+$("vRun").onclick=async ()=>{
+  ac(); await ac().resume(); vClear();
+  const N=Math.max(1,Math.min(64,parseInt($("vConc").value)||1));
+  const text=$("vText").value, spk=$("vSpeaker").value, temp=$("vTemp").value, topp=$("vTopP").value, play=$("vPlay").value==="1";
+  $("vRun").disabled=true; $("vSummary").textContent=`launching ${N} request(s)...`;
+  const t0=performance.now();
+  const jobs=[]; for(let i=0;i<N;i++) jobs.push(runTTS(i,text,spk,temp,topp,play&&i===0,"/veena","speaker").then(vAddRow));
+  await Promise.all(jobs);
+  $("vSummary").innerHTML=`done · ${N} request(s) · wall ${(performance.now()-t0).toFixed(0)} ms`;
+  $("vRun").disabled=false;
 };
 
 // ================= HUMAN-1 DUPLEX =================

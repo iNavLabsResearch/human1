@@ -1,12 +1,15 @@
 # Human-1 + Veena — FastAPI Voice Server
 
-One FastAPI + WebSocket server hosting **two** models, each toggled by an
+One FastAPI + WebSocket server hosting **three** models, each toggled by an
 `enabled` flag in `config.json`:
 
+- **svara** — [`kenpath/svara-tts-v1`](https://huggingface.co/kenpath/svara-tts-v1)
+  (Orpheus-style Llama-3B + SNAC 24 kHz) multilingual streaming **Text-to-Speech**,
+  voices `Language (Gender)` across 19 languages. *Enabled by default.*
 - **veena** — [`maya-research/Veena`](https://huggingface.co/maya-research/Veena)
-  (Llama-3B + SNAC 24 kHz) streaming **Text-to-Speech**. *Enabled by default.*
+  (Llama-3B + SNAC 24 kHz) streaming **Text-to-Speech**.
 - **human1** — [`JoshTalksAI/Human-1`](https://huggingface.co/JoshTalksAI/Human-1)
-  (Moshi) Hindi **full-duplex** voice. *Disabled by default.*
+  (Moshi) Hindi **full-duplex** voice.
 
 It loads each enabled model on startup, exposes port **5050** via **ngrok**, and
 ships a browser UI with a live latency-breakdown table and a concurrency tester.
@@ -21,6 +24,26 @@ veena_session.py         Veena streaming TTS + per-chunk latency breakdown
 server.py                FastAPI app, /ws + /veena endpoints, ngrok tunnel
 static/index.html        UI: Veena TTS (+ concurrency table) and Human-1 duplex
 ```
+
+## Svara TTS
+
+`/svara` WebSocket. Client sends `{"type":"tts","req_id":..,"text":..,"voice":..,
+"temperature":..,"top_p":..}` where `voice` is `"Language (Gender)"` (e.g.
+`"Hindi (Female)"`). Style tags go at the **end** of the text: `<happy>`, `<sad>`,
+`<anger>`, `<fear>`, `<clear>`. Audio streams back as Int16-LE PCM @ 24 kHz.
+
+The UI exposes **Language** and **Gender** dropdowns (config-driven), and reports
+per request — not per chunk:
+
+- **FCL gen ms** — model time to the *first* audio chunk (first-chunk latency)
+- **FCL recv ms** — client wall time to the first chunk (since submit)
+- **RTF** — real-time factor = total generation time / produced audio duration
+
+The **Concurrency** field fires N parallel WSS requests with the same text and
+tabulates each request's FCL + RTF.
+
+> The 19-language list is a config default — correct it in `config.json` →
+> `svara.languages` if Svara's actual coverage differs.
 
 ## Veena TTS
 

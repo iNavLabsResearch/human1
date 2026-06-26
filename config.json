@@ -40,7 +40,7 @@
     }
   },
   "veena": {
-    "enabled": true,
+    "enabled": false,
     "hf_repo": "maya-research/Veena",
     "snac_repo": "hubertsiuzdak/snac_24khz",
     "weights_dir": "./veena_weights",
@@ -67,6 +67,42 @@
       "top_p": 0.9,
       "repetition_penalty": 1.05,
       "max_new_tokens": 700
+    }
+  },
+  "svara": {
+    "enabled": true,
+    "hf_repo": "kenpath/svara-tts-v1",
+    "snac_repo": "hubertsiuzdak/snac_24khz",
+    "weights_dir": "./svara_weights",
+    "quantization": "4bit",
+    "device": "cuda",
+    "dtype": "bfloat16",
+    "device_map": "auto",
+    "warmup": true,
+    "sample_rate": 24000,
+    "languages": [
+      "Hindi", "Bengali", "Tamil", "Telugu", "Marathi", "Gujarati", "Kannada",
+      "Malayalam", "Punjabi", "Odia", "Assamese", "Urdu", "Sanskrit", "Nepali",
+      "Konkani", "Manipuri", "Bodo", "Dogri", "Maithili"
+    ],
+    "genders": ["Female", "Male"],
+    "default_voice": "Hindi (Female)",
+    "emotion_tags": ["<happy>", "<sad>", "<anger>", "<fear>", "<clear>"],
+    "max_concurrent_sessions": 8,
+    "tokens": {
+      "start_of_human": 128259,
+      "end_of_text": 128009,
+      "end_of_human": 128260,
+      "start_of_speech": 128257,
+      "end_of_speech": 128258,
+      "pad": 128263,
+      "audio_code_base_offset": 128266
+    },
+    "generation": {
+      "temperature": 0.6,
+      "top_p": 0.95,
+      "repetition_penalty": 1.1,
+      "max_new_tokens": 1200
     }
   }
 }

@@ -34,9 +34,11 @@ CONFIG: dict[str, Any] = json.loads((HERE / "config.json").read_text())
 
 HUMAN1_ON = CONFIG.get("human1", {}).get("enabled", False)
 VEENA_ON = CONFIG.get("veena", {}).get("enabled", False)
+SVARA_ON = CONFIG.get("svara", {}).get("enabled", False)
 
 _H1_SEM = asyncio.Semaphore(int(CONFIG["server"].get("max_concurrent_sessions", 1)))
 _VEENA_SEM = asyncio.Semaphore(int(CONFIG.get("veena", {}).get("max_concurrent_sessions", 8)))
+_SVARA_SEM = asyncio.Semaphore(int(CONFIG.get("svara", {}).get("max_concurrent_sessions", 8)))
 
 PUBLIC_URL: str | None = None
 
@@ -66,6 +68,8 @@ def _open_ngrok() -> str | None:
             print(f" Human-1 WS       : {wss}/ws")
         if VEENA_ON:
             print(f" Veena TTS WS     : {wss}/veena")
+        if SVARA_ON:
+            print(f" Svara TTS WS     : {wss}/svara")
         print(f" UI               : {url}/")
         print("=" * 64)
         return url
@@ -84,7 +88,11 @@ async def lifespan(app: FastAPI):
         print("[startup] loading Veena (TTS) ...")
         from veena_cache import CACHE as VC
         await asyncio.to_thread(VC.load, CONFIG)
-    if not (HUMAN1_ON or VEENA_ON):
+    if SVARA_ON:
+        print("[startup] loading Svara (TTS) ...")
+        from svara_cache import CACHE as SC
+        await asyncio.to_thread(SC.load, CONFIG)
+    if not (HUMAN1_ON or VEENA_ON or SVARA_ON):
         print("[startup] WARNING: no model enabled in config.json")
 
     global PUBLIC_URL
@@ -111,13 +119,16 @@ app.add_middleware(
 @app.get("/health")
 async def health() -> JSONResponse:
     out: dict[str, Any] = {"public_url": PUBLIC_URL,
-                           "models": {"human1": HUMAN1_ON, "veena": VEENA_ON}}
+                           "models": {"human1": HUMAN1_ON, "veena": VEENA_ON, "svara": SVARA_ON}}
     if HUMAN1_ON:
         from static_memory_cache import CACHE as H1
         out["human1"] = H1.status()
     if VEENA_ON:
         from veena_cache import CACHE as VC
         out["veena"] = VC.status()
+    if SVARA_ON:
+        from svara_cache import CACHE as SC
+        out["svara"] = SC.status()
     return JSONResponse(out)
 
 
@@ -167,6 +178,26 @@ if VEENA_ON:
             return
         async with _VEENA_SEM:
             await VeenaSession(websocket, VC).run()
+
+
+if SVARA_ON:
+    @app.websocket("/svara")
+    async def ws_svara(websocket: WebSocket) -> None:
+        from svara_cache import CACHE as SC
+        from svara_session import SvaraSession
+
+        if not SC.loaded:
+            await websocket.accept()
+            await websocket.send_text(json.dumps({"type": "error", "message": "svara not loaded"}))
+            await websocket.close()
+            return
+        if _SVARA_SEM.locked():
+            await websocket.accept()
+            await websocket.send_text(json.dumps({"type": "error", "message": "server busy: max sessions"}))
+            await websocket.close()
+            return
+        async with _SVARA_SEM:
+            await SvaraSession(websocket, SC).run()
 
 
 @app.get("/", response_class=HTMLResponse)
