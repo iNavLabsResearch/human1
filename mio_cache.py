@@ -153,37 +153,84 @@ class MioCache:
         except Exception:
             self.codec_device = self.device
 
-        # speaker/voice presets (global embeddings) -- these are the real voices
-        self._load_presets(mcfg)
+        # voices = speaker global embeddings (the real Indic-Mio "voice IDs")
+        self._build_voices(mcfg)
 
         if mcfg.get("warmup", True):
             self._warmup()
 
-    def _load_presets(self, mcfg: dict[str, Any]) -> None:
-        """Load .pt preset speaker embeddings -> 1D float tensors on the codec."""
+    def _build_voices(self, mcfg: dict[str, Any]) -> None:
+        """Build named voices as codec global embeddings.
+
+        Indic-Mio has no named voice IDs — voice is zero-shot. So we derive each
+        voice's global embedding by encoding an Indian reference clip (the model's
+        own samples/*.wav), exactly like MioTTS' preset generator:
+            features = codec.encode(wav, return_content=False, return_global=True)
+            embedding = features.global_embedding
+        Optionally we also load any precomputed *.pt embeddings from presets_dir.
+        """
         import torch
         from pathlib import Path
 
-        pdir = Path(mcfg.get("presets_dir", "./mio_presets"))
-        for name in mcfg.get("presets", []):
-            path = pdir / f"{name}.pt"
+        # 1) reference-audio voices (Indian sample clips shipped with the model)
+        ref_dir = Path(mcfg.get("reference_dir", ""))
+        for name, fname in (mcfg.get("voices") or {}).items():
+            path = ref_dir / fname
             if not path.exists():
-                print(f"[mio] preset missing: {path} (run ./setup.sh)")
+                print(f"[mio] voice ref missing: {path}")
                 continue
             try:
-                try:
-                    obj = torch.load(str(path), map_location="cpu", weights_only=True)
-                except Exception:
-                    obj = torch.load(str(path), map_location="cpu", weights_only=False)
-                emb = self._prepare_embedding(obj)
-                self.presets[name] = emb
+                self.presets[name] = self._encode_ref(str(path))
+                print(f"[mio] voice ready: {name}  ({fname})")
             except Exception as exc:
-                print(f"[mio] failed to load preset {name}: {exc}")
+                print(f"[mio] failed to build voice {name}: {exc}")
+
+        # 2) optional precomputed .pt global-embedding presets (user-supplied)
+        pdir = mcfg.get("presets_dir")
+        if pdir and Path(pdir).exists():
+            for p in Path(pdir).glob("*.pt"):
+                try:
+                    try:
+                        obj = torch.load(str(p), map_location="cpu", weights_only=True)
+                    except Exception:
+                        obj = torch.load(str(p), map_location="cpu", weights_only=False)
+                    self.presets[p.stem] = self._prepare_embedding(obj)
+                    print(f"[mio] preset voice: {p.stem}")
+                except Exception as exc:
+                    print(f"[mio] preset {p.stem} failed: {exc}")
+
         self.voices = list(self.presets.keys())
         if not self.voices:
-            print("[mio] WARNING: no speaker presets loaded -> TTS decode will fail")
+            print("[mio] WARNING: no voices built -> TTS decode will fail")
         else:
-            print(f"[mio] presets loaded: {self.voices}")
+            print(f"[mio] voices: {self.voices}")
+
+    def _encode_ref(self, path: str):
+        """Encode a reference wav -> 1D global-embedding tensor (the voice)."""
+        import torch
+        from miocodec import load_audio
+
+        wav = load_audio(path, sample_rate=self.sample_rate)
+        if torch.is_tensor(wav):
+            wav = wav.to(self.codec_device)
+        feats = self.codec.encode(wav, return_content=False, return_global=True)
+        return self._prepare_embedding(feats.global_embedding)
+
+    def embedding_from_wav_bytes(self, data: bytes):
+        """Encode an uploaded reference clip (zero-shot clone) -> global embedding."""
+        import os
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            f.write(data)
+            tmp = f.name
+        try:
+            return self._encode_ref(tmp)
+        finally:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
 
     def _prepare_embedding(self, obj):
         """Normalize a preset payload to a 1D float tensor on the codec device."""
@@ -200,7 +247,7 @@ class MioCache:
         """Return the global embedding for a voice (falls back to default/first)."""
         if voice and voice in self.presets:
             return self.presets[voice]
-        dv = self.config["mio"].get("default_preset")
+        dv = self.config["mio"].get("default_voice")
         if dv in self.presets:
             return self.presets[dv]
         return next(iter(self.presets.values())) if self.presets else None
@@ -210,7 +257,7 @@ class MioCache:
             from mio_session import synth_blocking
 
             print("[mio] warming up ...")
-            list(synth_blocking(self, "नमस्ते।", voice=self.config["mio"].get("default_preset")))
+            list(synth_blocking(self, "नमस्ते।", voice=self.config["mio"].get("default_voice")))
         except Exception as exc:
             print(f"[mio] warmup skipped ({exc})")
 

@@ -138,31 +138,22 @@ PY
 fi
 
 if [ "$MIO_ON" = "1" ]; then
-    echo "Downloading Indic-Mio + MioCodec weights + speaker presets..."
+    echo "Downloading Indic-Mio (incl. Indian sample voices) + MioCodec weights..."
     python3 - <<'PY'
-import json, os, urllib.request
+import json, os
 from huggingface_hub import snapshot_download
 c = json.load(open("config.json"))["mio"]
+# whole repo -> includes samples/*.wav (the Indian reference voices) + tokenizer
 snapshot_download(repo_id=c["hf_repo"], local_dir=c["weights_dir"])
 try:
     snapshot_download(repo_id=c["codec_repo"])  # cached for MioCodecModel.from_pretrained
 except Exception as e:
     print("warn: codec prefetch:", e)
-# speaker presets (global embeddings) -- the real Indic-Mio "voices"
-pdir = c.get("presets_dir", "./mio_presets")
-os.makedirs(pdir, exist_ok=True)
-base = c.get("presets_raw_base")
-for name in c.get("presets", []):
-    dst = os.path.join(pdir, f"{name}.pt")
-    if os.path.exists(dst):
-        continue
-    url = f"{base}/{name}.pt"
-    try:
-        urllib.request.urlretrieve(url, dst)
-        print("preset:", name)
-    except Exception as e:
-        print(f"warn: could not fetch preset {name}: {e}")
-print("Indic-Mio weights ready in", c["weights_dir"], "; presets in", pdir)
+os.makedirs(c.get("presets_dir", "./mio_presets"), exist_ok=True)  # for user .pt voices
+ref_dir = c.get("reference_dir", "")
+print("Indic-Mio ready in", c["weights_dir"], "; voice refs in", ref_dir)
+print("voice refs present:", [f for f in (c.get("voices") or {}).values()
+                              if os.path.exists(os.path.join(ref_dir, f))])
 PY
 fi
 

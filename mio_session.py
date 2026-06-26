@@ -98,7 +98,7 @@ def _to_i16(pcm: np.ndarray) -> bytes:
 
 
 def synth_blocking(cache, text: str, emotion: Optional[str] = None,
-                   voice: Optional[str] = None,
+                   voice: Optional[str] = None, global_embedding=None,
                    temperature: float = 0.9, top_p: float = 0.9) -> Iterator[bytes]:
     """Blocking generator yielding Int16 PCM chunks as they are produced."""
     import torch
@@ -109,7 +109,8 @@ def synth_blocking(cache, text: str, emotion: Optional[str] = None,
     vsize = int(mcfg["audio_vocab_size"])
     eos_ids = set(mcfg.get("eos_token_ids", [151645, 151643]))
     decode_every = int(mcfg.get("decode_every", 16))
-    global_embedding = cache.global_embedding(voice)
+    if global_embedding is None:
+        global_embedding = cache.global_embedding(voice)
 
     inputs = _build_inputs(cache, text, emotion)
 
@@ -204,7 +205,8 @@ class MioSession:
         req_id = data.get("req_id", "req")
         text = (data.get("text") or "").strip()
         emotion = data.get("emotion") or None
-        voice = data.get("voice") or self.cache.config["mio"].get("default_preset")
+        voice = data.get("voice") or self.cache.config["mio"].get("default_voice")
+        ref_b64 = data.get("ref_audio_b64") or None
         temperature = float(data.get("temperature", 0.9))
         top_p = float(data.get("top_p", 0.9))
 
@@ -215,15 +217,28 @@ class MioSession:
         await self._out_q.put({"type": "begin", "req_id": req_id,
                                "sample_rate": self.cache.sample_rate,
                                "server_ts": time.time() * 1000.0})
-        await asyncio.to_thread(self._run_synth, req_id, text, emotion, voice, temperature, top_p)
+        await asyncio.to_thread(self._run_synth, req_id, text, emotion, voice, ref_b64, temperature, top_p)
 
-    def _run_synth(self, req_id, text, emotion, voice, temperature, top_p) -> None:
+    def _run_synth(self, req_id, text, emotion, voice, ref_b64, temperature, top_p) -> None:
+        import base64
+
         t_start = time.perf_counter()
         index = 0
         fcl_ms = None
         total_samples = 0
         try:
-            for chunk in synth_blocking(self.cache, text, emotion, voice, temperature, top_p):
+            # zero-shot clone from an uploaded reference clip, if provided
+            global_embedding = None
+            if ref_b64 and self.cache.config["mio"].get("allow_reference_upload", True):
+                try:
+                    global_embedding = self.cache.embedding_from_wav_bytes(base64.b64decode(ref_b64))
+                except Exception as exc:
+                    self._emit({"type": "error", "req_id": req_id,
+                                "message": f"reference encode failed: {exc}"})
+                    return
+
+            for chunk in synth_blocking(self.cache, text, emotion, voice,
+                                        global_embedding, temperature, top_p):
                 now = time.perf_counter()
                 gen_ms = (now - t_start) * 1000.0
                 if fcl_ms is None:

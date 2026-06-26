@@ -36,18 +36,20 @@ is the Qwen3 chat template, audio tokens are `id - speech_offset` and decoded by
 `MioCodec.decode`. Streaming re-decodes with full context every `decode_every`
 tokens and emits the fresh tail.
 
-**Voices:** Indic-Mio voice is the codec **global (speaker) embedding**, supplied
-from MioTTS **speaker presets** — the `.pt` files (`en_female`, `en_male`,
-`jp_female`, `jp_male`) that `setup.sh` downloads into `mio.presets_dir`. The UI
-**Voice** dropdown selects one; `decode(global_embedding=preset,
-content_token_indices=tokens)` applies that timbre. (The model also takes
-**Language** + **Emotion** — `happy/sad/angry/disgust/fear/surprise`, plus
-English-specific tags — and word stress via `*word*`.) Reports per request:
-**FCL** + **RTF**, with N-way concurrency.
+**Voices (Indian):** Indic-Mio has **no named voice IDs** — voice is **zero-shot
+cloning** of a reference clip's codec **global embedding**. So the built-in
+voices are derived by encoding the model's own **Indian sample clips**
+(`samples/sample1–4.wav`, shipped in the repo) at load:
+`codec.encode(wav, return_global=True).global_embedding`. The UI **Voice**
+dropdown picks one (`indic_sample1…4`), and `decode(global_embedding=voice,
+content_token_indices=tokens)` applies that timbre.
 
-> Shipped presets are en/jp only; they speak any language but in that speaker's
-> timbre. Drop your own `<name>.pt` global-embedding files into `mio_presets/`
-> and add the names to `config.json → mio.presets` to add voices.
+To use **any** Indian voice, upload a reference `.wav` in the UI ("Clone voice
+from reference audio") — the server encodes it to a global embedding for that
+request. You can also drop precomputed `<name>.pt` embeddings into
+`mio.presets_dir`. (Plus **Language** + **Emotion** —
+`happy/sad/angry/disgust/fear/surprise` and English-specific tags — and word
+stress via `*word*`.) Reports per request: **FCL** + **RTF**, N-way concurrency.
 
 > Sample rate is read from the codec at load (`codec.sample_rate`), falling back
 > to `mio.sample_rate`. The model card example writes 44.1 kHz but the codec is

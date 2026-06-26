@@ -73,6 +73,11 @@
         <div><label>Top-p</label><input id="mTopP" type="number" step="0.05" value="0.9" /></div>
         <div><label>Play audio</label><select id="mPlay"><option value="1">on (req #0)</option><option value="0">off</option></select></div>
       </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Clone voice from reference audio (.wav, optional — overrides Voice)</label>
+          <input id="mRef" type="file" accept="audio/*" /></div>
+        <div style="flex:0 0 auto;display:flex;align-items:flex-end"><button id="mRefClear" class="btn-2">clear ref</button></div>
+      </div>
       <label>Text <span class="muted">(emotion tag auto-appended · word stress with *word*)</span></label>
       <textarea id="mText">नमस्ते, आप कैसे हैं? आज मौसम बहुत *अच्छा* है।</textarea>
       <div class="row" style="margin-top:12px">
@@ -237,9 +242,9 @@ async function loadHealth(){
     // --- mio ---
     const mLangs = cfg.mio?.languages || ["Hindi"]; $("mLang").innerHTML = mLangs.map(l=>`<option>${l}</option>`).join("");
     mEmoOptions(); $("mLang").addEventListener("change", mEmoOptions);
-    const voices = cfg.mio?.presets || h.mio?.voices || ["en_female"];
-    $("mVoice").innerHTML = voices.map(v=>`<option>${v}</option>`).join("");
-    if(cfg.mio?.default_preset) $("mVoice").value = cfg.mio.default_preset;
+    const voices = (h.mio?.voices && h.mio.voices.length) ? h.mio.voices : Object.keys(cfg.mio?.voices || {});
+    $("mVoice").innerHTML = (voices.length?voices:["indic_sample1"]).map(v=>`<option>${v}</option>`).join("");
+    if(cfg.mio?.default_voice) $("mVoice").value = cfg.mio.default_voice;
     // --- svara ---
     const langs = cfg.svara?.languages || ["Hindi"]; const gens = cfg.svara?.genders || ["Female","Male"];
     $("sLang").innerHTML = langs.map(l=>`<option>${l}</option>`).join("");
@@ -318,12 +323,22 @@ function makeTab(o){
   $(o.clear).onclick=clear; $(o.run).onclick=run;
 }
 
-// MIO
+// MIO — reference-audio cloning
+let mioRefB64=null;
+function abToB64(buf){ let bin=""; const b=new Uint8Array(buf); const c=0x8000;
+  for(let i=0;i<b.length;i+=c) bin+=String.fromCharCode.apply(null, b.subarray(i,i+c)); return btoa(bin); }
+$("mRef").addEventListener("change", async (e)=>{ const f=e.target.files[0];
+  if(!f){ mioRefB64=null; return; }
+  mioRefB64=abToB64(await f.arrayBuffer());
+  $("mSummary").textContent=`reference loaded (${f.name}, ${(f.size/1024).toFixed(0)} KB) — will clone on next Run`; });
+$("mRefClear").onclick=()=>{ mioRefB64=null; $("mRef").value=""; $("mSummary").textContent="reference cleared"; };
+
 makeTab({ path:"/mio", rows:"mRows", sum:"mSummary", run:"mRun", clear:"mClear",
   conc:"mConc", play:"mPlay", text:"mText", temp:"mTemp", topp:"mTopP",
   kFcl:"mkFcl", kRecv:"mkRecv", kRtf:"mkRtf", kConn:"mkConn",
-  build:()=>({ extra:{voice:$("mVoice").value, language:$("mLang").value, emotion:$("mEmo").value||null},
-               label:`${$("mVoice").value}·${$("mEmo").value||"neutral"}` }) });
+  build:()=>({ extra:Object.assign({voice:$("mVoice").value, language:$("mLang").value, emotion:$("mEmo").value||null},
+                                    mioRefB64?{ref_audio_b64:mioRefB64}:{}),
+               label: mioRefB64 ? `cloned·${$("mEmo").value||"neutral"}` : `${$("mVoice").value}·${$("mEmo").value||"neutral"}` }) });
 // SVARA
 makeTab({ path:"/svara", rows:"sRows", sum:"sSummary", run:"sRun", clear:"sClear",
   conc:"sConc", play:"sPlay", text:"sText", temp:"sTemp", topp:"sTopP",
