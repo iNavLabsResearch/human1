@@ -18,17 +18,19 @@ echo "=================================================================="
 # ----------------------------------------------------------------------------
 # Read enabled flags from config.json (single source of truth)
 # ----------------------------------------------------------------------------
-read -r HUMAN1_ON VEENA_ON SVARA_ON <<<"$(python3 - <<'PY'
+read -r HUMAN1_ON VEENA_ON SVARA_ON MIO_ON <<<"$(python3 - <<'PY'
 import json
 c = json.load(open("config.json"))
 print(int(c.get("human1", {}).get("enabled", False)),
       int(c.get("veena", {}).get("enabled", False)),
-      int(c.get("svara", {}).get("enabled", False)))
+      int(c.get("svara", {}).get("enabled", False)),
+      int(c.get("mio", {}).get("enabled", False)))
 PY
 )"
 echo "human1 enabled: $HUMAN1_ON"
 echo "veena  enabled: $VEENA_ON"
 echo "svara  enabled: $SVARA_ON"
+echo "mio    enabled: $MIO_ON"
 
 # ----------------------------------------------------------------------------
 # PyTorch (CUDA build). Skip if torch already present (Kaggle/Colab images).
@@ -96,6 +98,21 @@ try:
 except Exception as e:
     print("warn: snac prefetch:", e)
 print("Svara weights ready in", c["weights_dir"])
+PY
+fi
+
+if [ "$MIO_ON" = "1" ]; then
+    echo "Downloading Indic-Mio + MioCodec weights..."
+    python3 - <<'PY'
+import json
+from huggingface_hub import snapshot_download
+c = json.load(open("config.json"))["mio"]
+snapshot_download(repo_id=c["hf_repo"], local_dir=c["weights_dir"])
+try:
+    snapshot_download(repo_id=c["codec_repo"])  # cached for MioCodec.from_pretrained
+except Exception as e:
+    print("warn: codec prefetch:", e)
+print("Indic-Mio weights ready in", c["weights_dir"])
 PY
 fi
 

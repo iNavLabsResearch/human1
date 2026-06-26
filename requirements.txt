@@ -16,10 +16,13 @@ sentencepiece>=0.2
 sphn>=0.1.4
 torchao>=0.7.0          # INT8 weight-only quantization
 
-# --- Veena (Llama + SNAC TTS) ---
-transformers>=4.43
+# --- Veena / Svara (Llama + SNAC TTS) ---
+transformers>=4.57
 snac>=1.2.0
 bitsandbytes>=0.43      # 4bit / int8 quantization
+
+# --- Indic-Mio (Qwen3 + MioCodec TTS) ---
+miocodec
 
 # --- Multi-GPU dispatch (Kaggle 2x GPU) ---
 accelerate>=0.30

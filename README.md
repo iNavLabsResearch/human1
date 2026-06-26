@@ -1,11 +1,13 @@
 # Human-1 + Veena — FastAPI Voice Server
 
-One FastAPI + WebSocket server hosting **three** models, each toggled by an
+One FastAPI + WebSocket server hosting **four** models, each toggled by an
 `enabled` flag in `config.json`:
 
+- **mio** — [`SPRINGLab/Indic-Mio`](https://huggingface.co/SPRINGLab/Indic-Mio)
+  (Qwen3-0.6B + MioCodec 25 Hz) streaming **Text-to-Speech** across 23 languages
+  with emotion control. *Enabled by default.*
 - **svara** — [`kenpath/svara-tts-v1`](https://huggingface.co/kenpath/svara-tts-v1)
-  (Orpheus-style Llama-3B + SNAC 24 kHz) multilingual streaming **Text-to-Speech**,
-  voices `Language (Gender)` across 19 languages. *Enabled by default.*
+  (Orpheus-style Llama-3B + SNAC 24 kHz), voices `Language (Gender)`.
 - **veena** — [`maya-research/Veena`](https://huggingface.co/maya-research/Veena)
   (Llama-3B + SNAC 24 kHz) streaming **Text-to-Speech**.
 - **human1** — [`JoshTalksAI/Human-1`](https://huggingface.co/JoshTalksAI/Human-1)
@@ -24,6 +26,27 @@ veena_session.py         Veena streaming TTS + per-chunk latency breakdown
 server.py                FastAPI app, /ws + /veena endpoints, ngrok tunnel
 static/index.html        UI: Veena TTS (+ concurrency table) and Human-1 duplex
 ```
+
+## Indic-Mio TTS
+
+`/mio` WebSocket. Client sends `{"type":"tts","req_id":..,"text":..,"language":..,
+"emotion":..,"speaker_token":..,"temperature":..,"top_p":..}`. Unlike the others
+this is **Qwen3 + MioCodec** (a flat 25 Hz codec, not Orpheus/SNAC): the prompt
+is the Qwen3 chat template, audio tokens are `id - speech_offset` and decoded by
+`MioCodec.decode`. Streaming re-decodes with full context every `decode_every`
+tokens and emits the fresh tail.
+
+**Voices:** Indic-Mio has **no named voice IDs** — voice is zero-shot (speaker
+embeddings). The UI therefore selects **Language** (23) and **Emotion** (the
+documented tags: `happy/sad/angry/disgust/fear/surprise`, and English-specific
+ones). The model's `<|s_N|>` tokens are exposed as an **experimental** speaker
+selector (`config.json → mio.speaker_tokens`, default 0 = hidden). Word stress
+via `*word*`. Reports per request: **FCL** + **RTF**, with N-way concurrency.
+
+> Sample rate is read from the codec at load (`codec.sample_rate`), falling back
+> to `mio.sample_rate`. The model card example writes 44.1 kHz but the codec is
+> named "24kHz" — the server sends the resolved rate to the client so playback
+> matches regardless.
 
 ## Svara TTS
 

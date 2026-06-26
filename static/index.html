@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Svara · Veena · Human-1</title>
+<title>Indic-Mio · Svara · Veena · Human-1</title>
 <style>
   :root { --bg:#0d1117; --panel:#161b22; --line:#30363d; --txt:#e6edf3;
           --mut:#8b949e; --accent:#2f81f7; --ok:#3fb950; --bad:#f85149; }
@@ -43,7 +43,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Svara · Veena · Human-1</h1>
+  <h1>Indic-Mio · Svara · Veena · Human-1</h1>
   <div class="sub">Set the server base URL, then pick a tab.</div>
 
   <div class="panel">
@@ -56,35 +56,76 @@
   </div>
 
   <div class="tabs">
-    <div class="tab active" data-tab="svara">🪕 Svara TTS</div>
-    <div class="tab" data-tab="veena">🔊 Veena TTS</div>
-    <div class="tab" data-tab="human1">🎙️ Human-1 Duplex</div>
+    <div class="tab active" data-tab="mio">🎚️ Indic-Mio</div>
+    <div class="tab" data-tab="svara">🪕 Svara</div>
+    <div class="tab" data-tab="veena">🔊 Veena</div>
+    <div class="tab" data-tab="human1">🎙️ Human-1</div>
+  </div>
+
+  <!-- ===================== INDIC-MIO ===================== -->
+  <div id="tab-mio">
+    <div class="panel">
+      <div class="row">
+        <div><label>Language</label><select id="mLang"></select></div>
+        <div><label>Emotion / style</label><select id="mEmo"></select></div>
+        <div><label>Speaker <span class="muted">(experimental)</span></label><select id="mSpk"></select></div>
+        <div><label>Temperature</label><input id="mTemp" type="number" step="0.05" value="0.9" /></div>
+        <div><label>Top-p</label><input id="mTopP" type="number" step="0.05" value="0.9" /></div>
+        <div><label>Play audio</label><select id="mPlay"><option value="1">on (req #0)</option><option value="0">off</option></select></div>
+      </div>
+      <label>Text <span class="muted">(emotion tag auto-appended · word stress with *word*)</span></label>
+      <textarea id="mText">नमस्ते, आप कैसे हैं? आज मौसम बहुत *अच्छा* है।</textarea>
+      <div class="row" style="margin-top:12px">
+        <div><label>Concurrency (parallel WSS connections)</label><input id="mConc" type="number" min="1" max="64" value="1" /></div>
+        <div style="display:flex;align-items:flex-end;gap:10px">
+          <button id="mRun" class="btn-go" style="flex:1">🚀 Run</button>
+          <button id="mClear" class="btn-2">Clear</button>
+        </div>
+      </div>
+      <div class="muted" style="margin-top:8px">Indic-Mio has no named voice IDs — voice is zero-shot. Language &amp; emotion are documented controls; the speaker selector uses the model's <code>&lt;|s_N|&gt;</code> tokens and is experimental.</div>
+    </div>
+
+    <div class="panel">
+      <div class="stats">
+        <div class="stat"><div class="v" id="mkFcl">–</div><div class="k">avg FCL gen (ms)</div></div>
+        <div class="stat"><div class="v" id="mkRecv">–</div><div class="k">avg FCL recv (ms)</div></div>
+        <div class="stat"><div class="v" id="mkRtf">–</div><div class="k">avg RTF</div></div>
+        <div class="stat"><div class="v" id="mkConn">0</div><div class="k">requests done</div></div>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th>req</th><th>lang / emo</th>
+          <th>FCL gen ms<br><span class="muted">(model→1st chunk)</span></th>
+          <th>FCL recv ms<br><span class="muted">(client→1st chunk)</span></th>
+          <th>RTF</th><th>audio s</th><th>chunks</th><th>total ms</th>
+        </tr></thead>
+        <tbody id="mRows"></tbody>
+      </table></div>
+      <div class="muted" id="mSummary" style="margin-top:8px"></div>
+    </div>
   </div>
 
   <!-- ===================== SVARA ===================== -->
-  <div id="tab-svara">
+  <div id="tab-svara" class="hidden">
     <div class="panel">
       <div class="row">
         <div><label>Language</label><select id="sLang"></select></div>
         <div><label>Gender</label><select id="sGender"></select></div>
         <div><label>Temperature</label><input id="sTemp" type="number" step="0.05" value="0.6" /></div>
         <div><label>Top-p</label><input id="sTopP" type="number" step="0.05" value="0.95" /></div>
-        <div><label>Play audio</label>
-          <select id="sPlay"><option value="1">on (conn #0)</option><option value="0">off</option></select>
-        </div>
+        <div><label>Play audio</label><select id="sPlay"><option value="1">on (req #0)</option><option value="0">off</option></select></div>
       </div>
       <div class="muted" id="sVoice" style="margin-top:6px"></div>
       <label>Text (style tags at end: &lt;happy&gt; &lt;sad&gt; &lt;anger&gt; &lt;fear&gt; &lt;clear&gt;)</label>
       <textarea id="sText">आज सच में अच्छी खबर है — शाम को मिलते हैं! &lt;happy&gt;</textarea>
       <div class="row" style="margin-top:12px">
-        <div><label>Concurrency (parallel WSS connections)</label><input id="sConc" type="number" min="1" max="64" value="1" /></div>
+        <div><label>Concurrency</label><input id="sConc" type="number" min="1" max="64" value="1" /></div>
         <div style="display:flex;align-items:flex-end;gap:10px">
           <button id="sRun" class="btn-go" style="flex:1">🚀 Run</button>
           <button id="sClear" class="btn-2">Clear</button>
         </div>
       </div>
     </div>
-
     <div class="panel">
       <div class="stats">
         <div class="stat"><div class="v" id="kFclGen">–</div><div class="k">avg FCL gen (ms)</div></div>
@@ -92,17 +133,10 @@
         <div class="stat"><div class="v" id="kRtf">–</div><div class="k">avg RTF</div></div>
         <div class="stat"><div class="v" id="kConn">0</div><div class="k">requests done</div></div>
       </div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr>
-            <th>req</th><th>voice</th>
-            <th>FCL gen ms<br><span class="muted">(model→1st chunk)</span></th>
-            <th>FCL recv ms<br><span class="muted">(client→1st chunk)</span></th>
-            <th>RTF</th><th>audio s</th><th>chunks</th><th>total ms</th>
-          </tr></thead>
-          <tbody id="sRows"></tbody>
-        </table>
-      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>req</th><th>voice</th><th>FCL gen ms</th><th>FCL recv ms</th><th>RTF</th><th>audio s</th><th>chunks</th><th>total ms</th></tr></thead>
+        <tbody id="sRows"></tbody>
+      </table></div>
       <div class="muted" id="sSummary" style="margin-top:8px"></div>
     </div>
   </div>
@@ -114,7 +148,7 @@
         <div><label>Speaker</label><select id="vSpeaker"></select></div>
         <div><label>Temperature</label><input id="vTemp" type="number" step="0.05" value="0.4" /></div>
         <div><label>Top-p</label><input id="vTopP" type="number" step="0.05" value="0.9" /></div>
-        <div><label>Play audio</label><select id="vPlay"><option value="1">on (conn #0)</option><option value="0">off</option></select></div>
+        <div><label>Play audio</label><select id="vPlay"><option value="1">on (req #0)</option><option value="0">off</option></select></div>
       </div>
       <label>Text</label>
       <textarea id="vText">नमस्ते, मैं वीणा हूँ। आप कैसे हैं?</textarea>
@@ -171,22 +205,23 @@ const baseHttp = () => { const v=$("baseUrl").value.trim(); return v?v.replace(/
 const wsBase = () => baseHttp().replace(/^http/,"ws");
 const avg = (a) => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
 
-// ---- shared AudioContext ----
+// ---- shared AudioContext (buffers may carry a different rate; context resamples) ----
 let AC=null;
-function ac(){ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)({sampleRate:24000}); return AC; }
-function makePlayer(){ const c=ac(); return { t:c.currentTime, push(int16){
+function ac(){ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)(); return AC; }
+function makePlayer(rate){ const c=ac(); const sr=rate||24000; return { t:c.currentTime, push(int16){
   const f=new Float32Array(int16.length); for(let i=0;i<int16.length;i++) f[i]=int16[i]/32768;
-  const b=c.createBuffer(1,f.length,24000); b.copyToChannel(f,0);
+  const b=c.createBuffer(1,f.length,sr); b.copyToChannel(f,0);
   const s=c.createBufferSource(); s.buffer=b; s.connect(c.destination);
   const now=c.currentTime; if(this.t<now+0.02) this.t=now+0.02; s.start(this.t); this.t+=b.duration;
 }};}
 
 // ---- tabs ----
+const TABS=["mio","svara","veena","human1"];
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
   if(t.classList.contains("disabled")) return;
   document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
   t.classList.add("active");
-  ["svara","veena","human1"].forEach(n=>$("tab-"+n).classList.toggle("hidden", t.dataset.tab!==n));
+  TABS.forEach(n=>$("tab-"+n).classList.toggle("hidden", t.dataset.tab!==n));
 });
 
 // ---- health / config ----
@@ -194,113 +229,113 @@ async function loadHealth(){
   try{
     const h=await (await fetch(baseHttp()+"/health")).json();
     const parts=[];
-    for(const m of ["svara","veena","human1"]) if(h.models?.[m]) parts.push(`${m}=${h[m]?.loaded?"ready":"loading"}`);
-    $("health").innerHTML = `<span class="dot ${parts.length?"on":"err"}"></span>${parts.join(" · ")||"no model enabled"} · device=${h.svara?.device||h.veena?.device||h.human1?.device||"?"}`;
-    for(const m of ["svara","veena","human1"]) document.querySelector(`.tab[data-tab="${m}"]`).classList.toggle("disabled", !h.models?.[m]);
+    for(const m of TABS) if(h.models?.[m]) parts.push(`${m}=${h[m]?.loaded?"ready":"loading"}`);
+    const dev = h.mio?.device||h.svara?.device||h.veena?.device||h.human1?.device||"?";
+    $("health").innerHTML = `<span class="dot ${parts.length?"on":"err"}"></span>${parts.join(" · ")||"no model enabled"} · device=${dev}`;
+    for(const m of TABS) document.querySelector(`.tab[data-tab="${m}"]`).classList.toggle("disabled", !h.models?.[m]);
     const cfg=await (await fetch(baseHttp()+"/config")).json();
-    // svara language/gender
-    const langs = cfg.svara?.languages || h.svara?.languages || ["Hindi"];
-    const gens = cfg.svara?.genders || h.svara?.genders || ["Female","Male"];
+    // --- mio ---
+    const mLangs = cfg.mio?.languages || ["Hindi"]; $("mLang").innerHTML = mLangs.map(l=>`<option>${l}</option>`).join("");
+    mEmoOptions(); $("mLang").addEventListener("change", mEmoOptions);
+    const nSpk = cfg.mio?.speaker_tokens || 0;
+    let spkOpts = `<option value="">auto</option>`;
+    for(let i=0;i<nSpk;i++) spkOpts += `<option value="&lt;|s_${i}|&gt;">&lt;|s_${i}|&gt;</option>`;
+    $("mSpk").innerHTML = spkOpts;
+    // --- svara ---
+    const langs = cfg.svara?.languages || ["Hindi"]; const gens = cfg.svara?.genders || ["Female","Male"];
     $("sLang").innerHTML = langs.map(l=>`<option>${l}</option>`).join("");
     $("sGender").innerHTML = gens.map(g=>`<option>${g}</option>`).join("");
-    const dv = cfg.svara?.default_voice;
-    if(dv){ const m=dv.match(/^(.*) \((.*)\)$/); if(m){ $("sLang").value=m[1]; $("sGender").value=m[2]; } }
+    const dv = cfg.svara?.default_voice; if(dv){ const mm=dv.match(/^(.*) \((.*)\)$/); if(mm){ $("sLang").value=mm[1]; $("sGender").value=mm[2]; } }
     updateVoiceLabel();
-    // veena speakers
+    // --- veena ---
     const spk = cfg.veena?.speakers || ["kavya","agastya","maitri","vinaya"];
     $("vSpeaker").innerHTML = spk.map(s=>`<option>${s}</option>`).join("");
     if(cfg.veena?.default_speaker) $("vSpeaker").value=cfg.veena.default_speaker;
+    window.__cfg = cfg;
   }catch(e){ $("health").innerHTML=`<span class="dot err"></span>health failed: ${e}`; }
 }
 $("healthBtn").onclick=loadHealth;
+function mEmoOptions(){
+  const cfg=window.__cfg||{}; const lang=$("mLang").value;
+  const set = (lang==="English" ? (cfg.mio?.emotions_english) : (cfg.mio?.emotions_indic))
+            || ["happy","sad","angry","disgust","fear","surprise"];
+  $("mEmo").innerHTML = `<option value="">neutral</option>` + set.map(e=>`<option>${e}</option>`).join("");
+}
 function svaraVoice(){ return `${$("sLang").value} (${$("sGender").value})`; }
 function updateVoiceLabel(){ $("sVoice").textContent = "voice → " + svaraVoice(); }
 window.addEventListener("load", ()=>{ ac(); loadHealth(); });
 
-// ================= generic Orpheus-TTS runner (Svara / Veena) =================
-// opts: {path, voiceKey, voice, addRow, onDone}
-function runTTS(conn, text, voice, temp, topp, play, path, voiceKey){
+// ============ generic streaming-TTS runner (mio / svara / veena) ============
+// extra: object merged into payload; label: row label. Player rate from `begin`.
+function runTTS(conn, text, temp, topp, play, path, extra, label){
   return new Promise((resolve)=>{
     const ws=new WebSocket(wsBase()+path); ws.binaryType="arraybuffer";
-    const player = play ? makePlayer() : null;
-    let submitTs=0, pending=null, fclGen=null, fclRecv=null;
-    const payload = {type:"tts", req_id:"c"+conn, text, temperature:parseFloat(temp), top_p:parseFloat(topp)};
-    payload[voiceKey]=voice;
+    let submitTs=0, pending=null, fclGen=null, fclRecv=null, player=null;
+    const payload = Object.assign({type:"tts", req_id:"c"+conn, text, temperature:parseFloat(temp), top_p:parseFloat(topp)}, extra||{});
     ws.onopen=()=>{ submitTs=performance.now(); ws.send(JSON.stringify(payload)); };
     ws.onmessage=(ev)=>{
       if(typeof ev.data==="string"){
         const m=JSON.parse(ev.data);
-        if(m.type==="chunk"){ pending=m; if(fclGen===null) fclGen=m.gen_ms; }
+        if(m.type==="begin"){ if(play) player=makePlayer(m.sample_rate); }
+        else if(m.type==="chunk"){ pending=m; if(fclGen===null) fclGen=m.gen_ms; }
         else if(m.type==="end"){ ws.close();
-          resolve({conn, voice, fclGen, fclRecv, rtf:m.rtf, audio_sec:m.audio_sec, chunks:m.chunks, total_ms:m.total_ms}); }
-        else if(m.type==="error"){ ws.close(); resolve({conn, voice, error:m.message}); }
+          resolve({conn, label, fclGen, fclRecv, rtf:m.rtf, audio_sec:m.audio_sec, chunks:m.chunks, total_ms:m.total_ms}); }
+        else if(m.type==="error"){ ws.close(); resolve({conn, label, error:m.message}); }
       } else if(pending){
         if(fclRecv===null) fclRecv=performance.now()-submitTs;
         if(player) player.push(new Int16Array(ev.data));
         pending=null;
       }
     };
-    ws.onerror=()=>resolve({conn, voice, error:"ws error"});
+    ws.onerror=()=>resolve({conn, label, error:"ws error"});
   });
 }
 
-// ================= SVARA =================
-let sFclGen=[], sFclRecv=[], sRtf=[], sDone=0;
-function sClear(){ $("sRows").innerHTML=""; sFclGen=[];sFclRecv=[];sRtf=[];sDone=0;
-  ["kFclGen","kFclRecv","kRtf"].forEach(id=>$(id).textContent="–"); $("kConn").textContent="0"; $("sSummary").textContent=""; }
-$("sClear").onclick=sClear;
-$("sLang").addEventListener("change",updateVoiceLabel); $("sGender").addEventListener("change",updateVoiceLabel);
-
-function sAddRow(r){
-  const tr=document.createElement("tr");
-  if(r.error){ tr.innerHTML=`<td>#${r.conn}</td><td>${r.voice}</td><td colspan="6" style="color:var(--bad);text-align:left">${r.error}</td>`; }
-  else { tr.innerHTML=`<td>#${r.conn}</td><td>${r.voice}</td><td>${r.fclGen?.toFixed(1)??"–"}</td>`+
-        `<td>${r.fclRecv?.toFixed(1)??"–"}</td><td>${r.rtf??"–"}</td><td>${r.audio_sec??"–"}</td>`+
-        `<td>${r.chunks??"–"}</td><td>${r.total_ms??"–"}</td>`;
-    if(r.fclGen!=null) sFclGen.push(r.fclGen); if(r.fclRecv!=null) sFclRecv.push(r.fclRecv); if(r.rtf!=null) sRtf.push(r.rtf);
+// generic table/stat wiring per tab
+function makeTab(o){
+  let fcl=[], recv=[], rtf=[], done=0;
+  function clear(){ $(o.rows).innerHTML=""; fcl=[];recv=[];rtf=[];done=0;
+    [o.kFcl,o.kRecv,o.kRtf].forEach(id=>$(id).textContent="–"); $(o.kConn).textContent="0"; $(o.sum).textContent=""; }
+  function addRow(r){
+    const tr=document.createElement("tr");
+    if(r.error){ tr.innerHTML=`<td>#${r.conn}</td><td>${r.label}</td><td colspan="6" style="color:var(--bad);text-align:left">${r.error}</td>`; }
+    else { tr.innerHTML=`<td>#${r.conn}</td><td>${r.label}</td><td>${r.fclGen?.toFixed(1)??"–"}</td><td>${r.fclRecv?.toFixed(1)??"–"}</td><td>${r.rtf??"–"}</td><td>${r.audio_sec??"–"}</td><td>${r.chunks??"–"}</td><td>${r.total_ms??"–"}</td>`;
+      if(r.fclGen!=null)fcl.push(r.fclGen); if(r.fclRecv!=null)recv.push(r.fclRecv); if(r.rtf!=null)rtf.push(r.rtf); }
+    $(o.rows).appendChild(tr); done++; $(o.kConn).textContent=done;
+    const g=avg(fcl),rc=avg(recv),rt=avg(rtf);
+    if(g!=null)$(o.kFcl).textContent=g.toFixed(1); if(rc!=null)$(o.kRecv).textContent=rc.toFixed(1); if(rt!=null)$(o.kRtf).textContent=rt.toFixed(3);
   }
-  $("sRows").appendChild(tr);
-  sDone++; $("kConn").textContent=sDone;
-  const g=avg(sFclGen),rc=avg(sFclRecv),rt=avg(sRtf);
-  if(g!=null)$("kFclGen").textContent=g.toFixed(1); if(rc!=null)$("kFclRecv").textContent=rc.toFixed(1); if(rt!=null)$("kRtf").textContent=rt.toFixed(3);
+  async function run(){
+    ac(); await ac().resume(); clear();
+    const N=Math.max(1,Math.min(64,parseInt($(o.conc).value)||1));
+    const play=$(o.play).value==="1";
+    $(o.run).disabled=true; $(o.sum).textContent=`launching ${N} request(s)...`;
+    const t0=performance.now();
+    const jobs=[]; for(let i=0;i<N;i++){ const {extra,label}=o.build(); jobs.push(runTTS(i, $(o.text).value, $(o.temp).value, $(o.topp).value, play&&i===0, o.path, extra, label).then(addRow)); }
+    await Promise.all(jobs);
+    $(o.sum).innerHTML=`done · ${N} request(s) · wall ${(performance.now()-t0).toFixed(0)} ms`;
+    $(o.run).disabled=false;
+  }
+  $(o.clear).onclick=clear; $(o.run).onclick=run;
 }
-$("sRun").onclick=async ()=>{
-  ac(); await ac().resume(); sClear();
-  const N=Math.max(1,Math.min(64,parseInt($("sConc").value)||1));
-  const text=$("sText").value, voice=svaraVoice(), temp=$("sTemp").value, topp=$("sTopP").value, play=$("sPlay").value==="1";
-  $("sRun").disabled=true; $("sSummary").textContent=`launching ${N} request(s)...`;
-  const t0=performance.now();
-  const jobs=[]; for(let i=0;i<N;i++) jobs.push(runTTS(i,text,voice,temp,topp,play&&i===0,"/svara","voice").then(sAddRow));
-  await Promise.all(jobs);
-  $("sSummary").innerHTML=`done · ${N} request(s) · wall ${(performance.now()-t0).toFixed(0)} ms`;
-  $("sRun").disabled=false;
-};
 
-// ================= VEENA =================
-let vFcl=[], vRecv=[], vRtfA=[], vDone=0;
-function vClear(){ $("vRows").innerHTML=""; vFcl=[];vRecv=[];vRtfA=[];vDone=0;
-  ["vkFcl","vkRecv","vkRtf"].forEach(id=>$(id).textContent="–"); $("vkConn").textContent="0"; $("vSummary").textContent=""; }
-$("vClear").onclick=vClear;
-function vAddRow(r){
-  const tr=document.createElement("tr");
-  if(r.error){ tr.innerHTML=`<td>#${r.conn}</td><td>${r.voice}</td><td colspan="6" style="color:var(--bad);text-align:left">${r.error}</td>`; }
-  else { tr.innerHTML=`<td>#${r.conn}</td><td>${r.voice}</td><td>${r.fclGen?.toFixed(1)??"–"}</td><td>${r.fclRecv?.toFixed(1)??"–"}</td><td>${r.rtf??"–"}</td><td>${r.audio_sec??"–"}</td><td>${r.chunks??"–"}</td><td>${r.total_ms??"–"}</td>`;
-    if(r.fclGen!=null)vFcl.push(r.fclGen); if(r.fclRecv!=null)vRecv.push(r.fclRecv); if(r.rtf!=null)vRtfA.push(r.rtf); }
-  $("vRows").appendChild(tr); vDone++; $("vkConn").textContent=vDone;
-  const g=avg(vFcl),rc=avg(vRecv),rt=avg(vRtfA);
-  if(g!=null)$("vkFcl").textContent=g.toFixed(1); if(rc!=null)$("vkRecv").textContent=rc.toFixed(1); if(rt!=null)$("vkRtf").textContent=rt.toFixed(3);
-}
-$("vRun").onclick=async ()=>{
-  ac(); await ac().resume(); vClear();
-  const N=Math.max(1,Math.min(64,parseInt($("vConc").value)||1));
-  const text=$("vText").value, spk=$("vSpeaker").value, temp=$("vTemp").value, topp=$("vTopP").value, play=$("vPlay").value==="1";
-  $("vRun").disabled=true; $("vSummary").textContent=`launching ${N} request(s)...`;
-  const t0=performance.now();
-  const jobs=[]; for(let i=0;i<N;i++) jobs.push(runTTS(i,text,spk,temp,topp,play&&i===0,"/veena","speaker").then(vAddRow));
-  await Promise.all(jobs);
-  $("vSummary").innerHTML=`done · ${N} request(s) · wall ${(performance.now()-t0).toFixed(0)} ms`;
-  $("vRun").disabled=false;
-};
+// MIO
+makeTab({ path:"/mio", rows:"mRows", sum:"mSummary", run:"mRun", clear:"mClear",
+  conc:"mConc", play:"mPlay", text:"mText", temp:"mTemp", topp:"mTopP",
+  kFcl:"mkFcl", kRecv:"mkRecv", kRtf:"mkRtf", kConn:"mkConn",
+  build:()=>({ extra:{language:$("mLang").value, emotion:$("mEmo").value||null, speaker_token:$("mSpk").value||null},
+               label:`${$("mLang").value}/${$("mEmo").value||"neutral"}` }) });
+// SVARA
+makeTab({ path:"/svara", rows:"sRows", sum:"sSummary", run:"sRun", clear:"sClear",
+  conc:"sConc", play:"sPlay", text:"sText", temp:"sTemp", topp:"sTopP",
+  kFcl:"kFclGen", kRecv:"kFclRecv", kRtf:"kRtf", kConn:"kConn",
+  build:()=>({ extra:{voice:svaraVoice()}, label:svaraVoice() }) });
+// VEENA
+makeTab({ path:"/veena", rows:"vRows", sum:"vSummary", run:"vRun", clear:"vClear",
+  conc:"vConc", play:"vPlay", text:"vText", temp:"vTemp", topp:"vTopP",
+  kFcl:"vkFcl", kRecv:"vkRecv", kRtf:"vkRtf", kConn:"vkConn",
+  build:()=>({ extra:{speaker:$("vSpeaker").value}, label:$("vSpeaker").value }) });
+$("sLang").addEventListener("change",updateVoiceLabel); $("sGender").addEventListener("change",updateVoiceLabel);
 
 // ================= HUMAN-1 DUPLEX =================
 let h1ws,h1Stream,h1Node,h1Play,h1Ping;
@@ -308,7 +343,7 @@ function h1Set(s,k){ $("h1State").textContent=s; $("h1Dot").className="dot"+(k?(
 function f2i16(f){ const o=new Int16Array(f.length); for(let i=0;i<f.length;i++){let s=Math.max(-1,Math.min(1,f[i])); o[i]=s<0?s*0x8000:s*0x7fff;} return o; }
 async function h1Connect(){
   $("h1Connect").disabled=true; h1Set("connecting…");
-  const c=ac(); await c.resume(); h1Play=makePlayer();
+  const c=ac(); await c.resume(); h1Play=makePlayer(24000);
   h1Stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true}});
   const src=c.createMediaStreamSource(h1Stream);
   const code=`class Cap extends AudioWorkletProcessor{process(i){const ch=i[0][0]; if(ch)this.port.postMessage(ch.slice(0)); return true;}} registerProcessor('cap',Cap);`;

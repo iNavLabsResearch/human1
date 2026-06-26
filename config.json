@@ -70,7 +70,7 @@
     }
   },
   "svara": {
-    "enabled": true,
+    "enabled": false,
     "hf_repo": "kenpath/svara-tts-v1",
     "snac_repo": "hubertsiuzdak/snac_24khz",
     "weights_dir": "./svara_weights",
@@ -103,6 +103,38 @@
       "top_p": 0.95,
       "repetition_penalty": 1.1,
       "max_new_tokens": 1200
+    }
+  },
+  "mio": {
+    "enabled": true,
+    "hf_repo": "SPRINGLab/Indic-Mio",
+    "codec_repo": "Aratako/MioCodec-25Hz-24kHz",
+    "weights_dir": "./mio_weights",
+    "quantization": "none",
+    "device": "cuda",
+    "dtype": "bfloat16",
+    "device_map": "auto",
+    "warmup": true,
+    "sample_rate": 24000,
+    "speech_offset": 151669,
+    "audio_vocab_size": 12800,
+    "decode_every": 16,
+    "languages": [
+      "Hindi", "Bengali", "Marathi", "Telugu", "Kannada", "Maithili", "Assamese",
+      "Bodo", "Dogri", "Gujarati", "Malayalam", "Punjabi", "Tamil", "Nepali",
+      "Sanskrit", "Santali", "Sindhi", "Odia", "Manipuri", "Kashmiri", "Konkani",
+      "Urdu", "English"
+    ],
+    "emotions_indic": ["happy", "sad", "angry", "disgust", "fear", "surprise"],
+    "emotions_english": ["happy", "sad", "enunciated", "confused", "angry", "whisper"],
+    "speaker_tokens": 0,
+    "eos_token_ids": [151645, 151643],
+    "pad_token_id": 151643,
+    "max_concurrent_sessions": 8,
+    "generation": {
+      "temperature": 0.9,
+      "top_p": 0.9,
+      "max_new_tokens": 1024
     }
   }
 }
