@@ -22,7 +22,8 @@ snac>=1.2.0
 bitsandbytes>=0.43      # 4bit / int8 quantization
 
 # --- Indic-Mio (Qwen3 + MioCodec TTS) ---
-miocodec
+# miocodec is NOT on PyPI — it is installed from git in setup.sh:
+#   pip install git+https://github.com/Aratako/MioCodec
 
 # --- Multi-GPU dispatch (Kaggle 2x GPU) ---
 accelerate>=0.30

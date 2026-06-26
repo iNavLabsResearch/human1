@@ -121,9 +121,13 @@ class MioCache:
         self.tokenizer = AutoTokenizer.from_pretrained(src, trust_remote_code=True)
 
         print(f"[mio] loading MioCodec ({mcfg['codec_repo']}) ...")
-        from miocodec import MioCodec
+        # the package exposes MioCodecModel; older docs say MioCodec — accept both
+        try:
+            from miocodec import MioCodecModel as _Codec
+        except Exception:
+            from miocodec import MioCodec as _Codec
 
-        self.codec = MioCodec.from_pretrained(mcfg["codec_repo"])
+        self.codec = _Codec.from_pretrained(mcfg["codec_repo"])
         try:
             self.codec = self.codec.eval()
         except Exception:

@@ -83,12 +83,17 @@ every chunk in a table. Speakers (`kavya`, `agastya`, `maitri`, `vinaya`) are
 selectable in the UI. The **Concurrency** field opens N parallel WSS connections
 with the same text and tabulates each request's per-chunk latency.
 
-## Run (on a GPU box — Kaggle / Colab / remote H100)
+## Run (on a GPU box — Kaggle / Colab / remote H100 / RTX 6000 Blackwell)
 
 ```bash
-chmod +x setup.sh && ./setup.sh      # installs deps + downloads ~31 GB weights
+chmod +x setup.sh && ./setup.sh      # installs deps + downloads weights
 python3 server.py                    # loads model, opens ngrok, serves :5050
 ```
+
+`setup.sh` detects the GPU arch and installs the right PyTorch: **Blackwell**
+(RTX 6000 Blackwell / B200 / 50-series, `sm_120`) needs the **CUDA 12.8** build,
+which it pulls automatically (override with `TORCH_INDEX=...`). `miocodec` is
+git-only and installed from `github.com/Aratako/MioCodec` when Indic-Mio is on.
 
 On startup the console prints the public ngrok URL, e.g.:
 

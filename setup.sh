@@ -36,11 +36,41 @@ echo "mio    enabled: $MIO_ON"
 # PyTorch (CUDA build). Skip if torch already present (Kaggle/Colab images).
 # ----------------------------------------------------------------------------
 python3 -m pip install --upgrade pip wheel
+
+# ----------------------------------------------------------------------------
+# PyTorch — must match the GPU arch. Blackwell (RTX 6000 Blackwell / B200 /
+# 50-series = sm_120) needs a CUDA 12.8 build; older cu121 wheels have no
+# sm_120 kernels and crash at runtime. We (re)install from cu128 unless the
+# torch already present actually lists this GPU's arch.
+# ----------------------------------------------------------------------------
+TORCH_INDEX="${TORCH_INDEX:-https://download.pytorch.org/whl/cu128}"
+NEED_TORCH=1
 if python3 -c "import torch" 2>/dev/null; then
-    echo "torch already installed: $(python3 -c 'import torch;print(torch.__version__)')"
-else
-    echo "Installing torch (CUDA 12.1 build)..."
-    python3 -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
+    if python3 - <<'PY'
+import sys
+try:
+    import torch
+    if not torch.cuda.is_available():
+        sys.exit(1)
+    cap = torch.cuda.get_device_capability()
+    sm = f"sm_{cap[0]}{cap[1]}"
+    archs = torch.cuda.get_arch_list()
+    print(f"[torch] {torch.__version__} gpu={torch.cuda.get_device_name(0)} "
+          f"cap={sm} arch_list={archs}")
+    sys.exit(0 if sm in archs else 2)
+except Exception as e:
+    print("[torch] check failed:", e); sys.exit(1)
+PY
+    then
+        NEED_TORCH=0
+        echo "torch already supports this GPU."
+    else
+        echo "Installed torch does NOT support this GPU arch -> reinstalling from cu128."
+    fi
+fi
+if [ "$NEED_TORCH" = "1" ]; then
+    echo "Installing torch + torchaudio from $TORCH_INDEX ..."
+    python3 -m pip install --upgrade --force-reinstall torch torchaudio --index-url "$TORCH_INDEX"
 fi
 
 # ----------------------------------------------------------------------------
@@ -48,6 +78,12 @@ fi
 # ----------------------------------------------------------------------------
 echo "Installing Python requirements..."
 python3 -m pip install -r requirements.txt
+
+# miocodec is git-only (not on PyPI); install it when Indic-Mio is enabled.
+if [ "$MIO_ON" = "1" ]; then
+    echo "Installing miocodec from git ..."
+    python3 -m pip install "git+https://github.com/Aratako/MioCodec"
+fi
 
 # ----------------------------------------------------------------------------
 # Download weights for the enabled model(s)
