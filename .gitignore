@@ -1,0 +1,10 @@
+weights/
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.safetensors
+*.model
+*.vocab
+.ngrok/
+.DS_Store

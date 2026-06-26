@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Human-1 — Hindi Full-Duplex</title>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --line:#30363d; --txt:#e6edf3;
+          --mut:#8b949e; --accent:#2f81f7; --ok:#3fb950; --bad:#f85149; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif;
+         background:var(--bg); color:var(--txt); }
+  .wrap { max-width:880px; margin:0 auto; padding:24px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .sub { color:var(--mut); font-size:13px; margin-bottom:20px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+           padding:16px; margin-bottom:16px; }
+  label { display:block; font-size:12px; color:var(--mut); margin:10px 0 4px; }
+  input, textarea, select { width:100%; background:#0d1117; color:var(--txt);
+           border:1px solid var(--line); border-radius:6px; padding:9px 10px; font-size:14px; }
+  textarea { resize:vertical; min-height:60px; }
+  .row { display:flex; gap:12px; } .row > * { flex:1; }
+  button { cursor:pointer; border:none; border-radius:6px; padding:11px 18px;
+           font-size:14px; font-weight:600; }
+  .btn-go { background:var(--accent); color:#fff; } .btn-go:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-stop { background:var(--bad); color:#fff; }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--mut); margin-right:6px; }
+  .dot.on { background:var(--ok); } .dot.err { background:var(--bad); }
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .stat { background:#0d1117; border:1px solid var(--line); border-radius:8px; padding:12px; text-align:center; }
+  .stat .v { font-size:22px; font-weight:700; } .stat .k { font-size:11px; color:var(--mut); margin-top:2px; }
+  #log { height:180px; overflow:auto; background:#0d1117; border:1px solid var(--line);
+         border-radius:8px; padding:12px; font-size:14px; line-height:1.5; }
+  #log .t { color:#79c0ff; } #log .sys { color:var(--mut); font-size:12px; }
+  .vu { height:8px; background:#0d1117; border-radius:4px; overflow:hidden; margin-top:6px; }
+  .vu > div { height:100%; width:0%; background:var(--ok); transition:width .05s; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Human-1 · Hindi Full-Duplex Voice</h1>
+  <div class="sub">Moshi-based · 24 kHz / 12.5 Hz · INT8</div>
+
+  <div class="panel">
+    <label>Server Base URL (the remote GPU server, e.g. the ngrok URL)</label>
+    <input id="baseUrl" placeholder="https://xxxx.ngrok-free.app  (leave blank = this page's origin)" />
+    <div class="row">
+      <div>
+        <label>Voice ID</label>
+        <input id="voiceId" value="default" />
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button id="testBtn" class="btn-go" style="width:100%;background:#21262d;color:var(--txt);border:1px solid var(--line)">Test /health</button>
+      </div>
+    </div>
+    <label>System Prompt</label>
+    <textarea id="sysPrompt" placeholder="आप एक मददगार हिंदी सहायक हैं...">आप एक मददगार और दोस्ताना हिंदी बोलने वाले सहायक हैं।</textarea>
+  </div>
+
+  <div class="panel">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div><span id="dot" class="dot"></span><span id="state">disconnected</span></div>
+      <div>
+        <button id="connectBtn" class="btn-go">▶ Connect &amp; Talk</button>
+        <button id="stopBtn" class="btn-stop" style="display:none">■ Stop</button>
+      </div>
+    </div>
+    <div class="vu"><div id="micVu"></div></div>
+  </div>
+
+  <div class="panel">
+    <div class="stats">
+      <div class="stat"><div class="v" id="sLat">–</div><div class="k">chunk latency (ms)</div></div>
+      <div class="stat"><div class="v" id="sRtf">–</div><div class="k">RTF (×realtime)</div></div>
+      <div class="stat"><div class="v" id="sPing">–</div><div class="k">ping (ms)</div></div>
+      <div class="stat"><div class="v" id="sFrames">0</div><div class="k">frames</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <label>Transcript (Moshi text)</label>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let ws, audioCtx, micStream, micNode, playTime = 0, sampleRate = 24000;
+let pingTimer = null;
+
+function baseHttp() {
+  const v = $("baseUrl").value.trim();
+  return v ? v.replace(/\/+$/, "") : location.origin;
+}
+function wsUrl() {
+  const b = baseHttp();
+  return b.replace(/^http/, "ws") + "/ws";
+}
+function logLine(html, cls) {
+  const el = $("log");
+  const d = document.createElement("div");
+  if (cls) d.className = cls;
+  d.innerHTML = html;
+  el.appendChild(d); el.scrollTop = el.scrollHeight;
+}
+function setState(s, kind) {
+  $("state").textContent = s;
+  const dot = $("dot"); dot.className = "dot" + (kind === "on" ? " on" : kind === "err" ? " err" : "");
+}
+
+$("testBtn").onclick = async () => {
+  try {
+    const r = await fetch(baseHttp() + "/health");
+    const j = await r.json();
+    logLine(`<span class="sys">/health → ${j.status} · device=${j.cache?.device} · quant=${j.quantization}</span>`);
+  } catch (e) { logLine(`<span class="sys" style="color:var(--bad)">/health failed: ${e}</span>`); }
+};
+
+// PCM Float32 [-1,1] -> Int16 LE bytes
+function floatToInt16(f32) {
+  const out = new Int16Array(f32.length);
+  for (let i = 0; i < f32.length; i++) {
+    let s = Math.max(-1, Math.min(1, f32[i]));
+    out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  return out;
+}
+
+// Schedule an Int16 PCM chunk for gapless playback.
+function playChunk(int16) {
+  const f32 = new Float32Array(int16.length);
+  for (let i = 0; i < int16.length; i++) f32[i] = int16[i] / 32768;
+  const buf = audioCtx.createBuffer(1, f32.length, sampleRate);
+  buf.copyToChannel(f32, 0);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf; src.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
+  if (playTime < now + 0.02) playTime = now + 0.02;
+  src.start(playTime);
+  playTime += buf.duration;
+}
+
+async function connect() {
+  $("connectBtn").disabled = true;
+  setState("connecting…");
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+  await audioCtx.resume();
+  sampleRate = audioCtx.sampleRate;
+  playTime = audioCtx.currentTime;
+
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+  });
+
+  // AudioWorklet capture (falls back to ScriptProcessor if unavailable)
+  const src = audioCtx.createMediaStreamSource(micStream);
+  const workletCode = `
+    class Cap extends AudioWorkletProcessor {
+      process(inputs) {
+        const ch = inputs[0][0];
+        if (ch) this.port.postMessage(ch.slice(0));
+        return true;
+      }
+    }
+    registerProcessor('cap', Cap);`;
+  try {
+    const url = URL.createObjectURL(new Blob([workletCode], { type: "application/javascript" }));
+    await audioCtx.audioWorklet.addModule(url);
+    micNode = new AudioWorkletNode(audioCtx, "cap");
+    micNode.port.onmessage = (e) => onMicFrame(e.data);
+    src.connect(micNode);
+  } catch (err) {
+    const proc = audioCtx.createScriptProcessor(2048, 1, 1);
+    proc.onaudioprocess = (e) => onMicFrame(e.inputBuffer.getChannelData(0));
+    src.connect(proc); proc.connect(audioCtx.destination); micNode = proc;
+  }
+
+  ws = new WebSocket(wsUrl());
+  ws.binaryType = "arraybuffer";
+  ws.onopen = () => {
+    setState("connected", "on");
+    ws.send(JSON.stringify({
+      type: "start",
+      system_prompt: $("sysPrompt").value,
+      voice_id: $("voiceId").value,
+      sample_rate: sampleRate,
+    }));
+    pingTimer = setInterval(() => {
+      if (ws.readyState === 1) ws.send(JSON.stringify({ type: "ping", t: performance.now() }));
+    }, 1000);
+    $("connectBtn").style.display = "none";
+    $("stopBtn").style.display = "inline-block";
+  };
+  ws.onmessage = (ev) => {
+    if (typeof ev.data === "string") {
+      const m = JSON.parse(ev.data);
+      if (m.type === "text") { appendText(m.text); }
+      else if (m.type === "stats") {
+        $("sLat").textContent = m.chunk_latency_ms;
+        $("sRtf").textContent = m.rtf;
+        $("sFrames").textContent = m.frames;
+      } else if (m.type === "pong") {
+        $("sPing").textContent = (performance.now() - m.t).toFixed(0);
+      } else if (m.type === "ready") {
+        sampleRate = m.sample_rate || sampleRate;
+        logLine(`<span class="sys">ready · ${m.sample_rate}Hz · frame ${m.frame_size}</span>`);
+      } else if (m.type === "error") {
+        logLine(`<span class="sys" style="color:var(--bad)">error: ${m.message}</span>`);
+      }
+    } else {
+      playChunk(new Int16Array(ev.data));
+    }
+  };
+  ws.onerror = () => setState("error", "err");
+  ws.onclose = () => { setState("disconnected"); cleanup(); };
+  $("connectBtn").disabled = false;
+}
+
+let curLine = null;
+function appendText(t) {
+  if (!curLine) { curLine = document.createElement("div"); curLine.className = "t"; $("log").appendChild(curLine); }
+  curLine.textContent += t;
+  $("log").scrollTop = $("log").scrollHeight;
+}
+
+function onMicFrame(f32) {
+  // VU meter
+  let peak = 0; for (let i = 0; i < f32.length; i++) peak = Math.max(peak, Math.abs(f32[i]));
+  $("micVu").style.width = Math.min(100, peak * 140) + "%";
+  if (ws && ws.readyState === 1) ws.send(floatToInt16(f32).buffer);
+}
+
+function cleanup() {
+  if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }
+  try { micNode && micNode.disconnect(); } catch (e) {}
+  try { micStream && micStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+  try { audioCtx && audioCtx.close(); } catch (e) {}
+  $("connectBtn").style.display = "inline-block";
+  $("connectBtn").disabled = false;
+  $("stopBtn").style.display = "none";
+  curLine = null;
+}
+
+$("connectBtn").onclick = connect;
+$("stopBtn").onclick = () => {
+  try { ws && ws.send(JSON.stringify({ type: "stop" })); } catch (e) {}
+  try { ws && ws.close(); } catch (e) {}
+  cleanup();
+};
+</script>
+</body>
+</html>

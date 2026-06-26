@@ -1,0 +1,41 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 5050,
+    "allow_origins": ["*"],
+    "max_concurrent_sessions": 1
+  },
+  "ngrok": {
+    "enabled": true,
+    "authtoken": "39AeIeJysk6gdiwb40JoE6yVPlt_3HyLkyg1qXX3zGVHEdPQc",
+    "domain": null,
+    "region": "in"
+  },
+  "model": {
+    "hf_repo": "JoshTalksAI/Human-1",
+    "base_repo": "kyutai/moshiko-pytorch-bf16",
+    "weights_dir": "./weights",
+    "moshi_weight": "model.safetensors",
+    "mimi_weight": "tokenizer-e351c8d8-checkpoint125.safetensors",
+    "tokenizer": "tokenizer_hindi.model",
+    "config_path": null,
+    "quantization": "int8",
+    "device": "cuda",
+    "dtype": "bfloat16",
+    "device_map": "single",
+    "distributed": false,
+    "warmup_steps": 4
+  },
+  "generation": {
+    "use_sampling": true,
+    "temp": 0.8,
+    "temp_text": 0.7,
+    "top_k": 250,
+    "top_k_text": 25
+  },
+  "audio": {
+    "sample_rate": 24000,
+    "frame_rate": 12.5,
+    "channels": 1
+  }
+}

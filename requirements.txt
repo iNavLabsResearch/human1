@@ -1,0 +1,21 @@
+# --- Core serving ---
+fastapi>=0.110
+uvicorn[standard]>=0.29
+websockets>=12.0
+pyngrok>=7.1
+numpy>=1.24
+
+# --- Model stack (Moshi / Human-1) ---
+# torch is installed separately in setup.sh to match the CUDA build of the host.
+moshi>=0.2.1
+huggingface_hub>=0.23
+safetensors>=0.4
+sentencepiece>=0.2
+soundfile>=0.12
+sphn>=0.1.4
+
+# --- INT8 quantization (weight-only) ---
+torchao>=0.7.0
+
+# --- Multi-GPU dispatch (optional, for Kaggle 2x GPU) ---
+accelerate>=0.30
