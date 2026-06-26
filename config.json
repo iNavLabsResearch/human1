@@ -19,7 +19,7 @@
     "mimi_weight": "tokenizer-e351c8d8-checkpoint125.safetensors",
     "tokenizer": "tokenizer_hindi.model",
     "config_path": null,
-    "quantization": "int8",
+    "quantization": "none",
     "device": "cuda",
     "dtype": "bfloat16",
     "device_map": "single",
