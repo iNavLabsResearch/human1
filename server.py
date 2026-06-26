@@ -1,14 +1,16 @@
 """
 server.py
 =========
-FastAPI server for the Human-1 (Moshi) Hindi full-duplex model.
+FastAPI server hosting one or both models, selected by ``enabled`` flags in
+config.json:
 
-On startup it:
-  1. loads config.json (every tunable lives there),
-  2. loads + quantizes the model into static_memory_cache.CACHE,
-  3. opens an ngrok tunnel to port 5050 and prints the public URL.
+  * human1 (Moshi, full-duplex voice)  -> WS /ws
+  * veena  (Llama+SNAC, streaming TTS)  -> WS /veena
 
-No CORS middleware is installed beyond a permissive allow-all (per request).
+On startup it loads every *enabled* model into its static memory cache, then
+opens an ngrok tunnel to port 5050 and prints the public URL.
+
+Only a permissive allow-all CORS layer is installed (no other middleware).
 
 Run:  python3 server.py
 """
@@ -27,16 +29,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from static_memory_cache import CACHE
-from moshi_session import MoshiSession
-
 HERE = Path(__file__).parent
 CONFIG: dict[str, Any] = json.loads((HERE / "config.json").read_text())
 
-# A semaphore caps concurrent sessions (streaming state is per-connection but
-# the underlying modules are shared, so we serialize by default).
-_MAX_SESSIONS = int(CONFIG["server"].get("max_concurrent_sessions", 1))
-_SESSION_SEM = asyncio.Semaphore(_MAX_SESSIONS)
+HUMAN1_ON = CONFIG.get("human1", {}).get("enabled", False)
+VEENA_ON = CONFIG.get("veena", {}).get("enabled", False)
+
+_H1_SEM = asyncio.Semaphore(int(CONFIG["server"].get("max_concurrent_sessions", 1)))
+_VEENA_SEM = asyncio.Semaphore(int(CONFIG.get("veena", {}).get("max_concurrent_sessions", 8)))
 
 PUBLIC_URL: str | None = None
 
@@ -58,11 +58,14 @@ def _open_ngrok() -> str | None:
         kwargs: dict[str, Any] = {"proto": "http", "bind_tls": True}
         if ncfg.get("domain"):
             kwargs["domain"] = ncfg["domain"]
-        tunnel = ngrok.connect(port, **kwargs)
-        url = tunnel.public_url
+        url = ngrok.connect(port, **kwargs).public_url
+        wss = url.replace("https://", "wss://")
         print("=" * 64)
         print(f" ngrok public URL : {url}")
-        print(f" WebSocket URL    : {url.replace('https://', 'wss://')}/ws")
+        if HUMAN1_ON:
+            print(f" Human-1 WS       : {wss}/ws")
+        if VEENA_ON:
+            print(f" Veena TTS WS     : {wss}/veena")
         print(f" UI               : {url}/")
         print("=" * 64)
         return url
@@ -73,14 +76,20 @@ def _open_ngrok() -> str | None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1) load the model on startup (blocking work -> thread)
-    print("[startup] loading model into static memory cache ...")
-    await asyncio.to_thread(CACHE.load, CONFIG)
-    # 2) expose port 5050 via ngrok
+    if HUMAN1_ON:
+        print("[startup] loading Human-1 (Moshi) ...")
+        from static_memory_cache import CACHE as H1
+        await asyncio.to_thread(H1.load, CONFIG)
+    if VEENA_ON:
+        print("[startup] loading Veena (TTS) ...")
+        from veena_cache import CACHE as VC
+        await asyncio.to_thread(VC.load, CONFIG)
+    if not (HUMAN1_ON or VEENA_ON):
+        print("[startup] WARNING: no model enabled in config.json")
+
     global PUBLIC_URL
     PUBLIC_URL = _open_ngrok()
     yield
-    # shutdown
     try:
         from pyngrok import ngrok
         ngrok.kill()
@@ -88,9 +97,8 @@ async def lifespan(app: FastAPI):
         pass
 
 
-app = FastAPI(title="Human-1 Server", lifespan=lifespan)
+app = FastAPI(title="Human-1 / Veena Server", lifespan=lifespan)
 
-# Allow all origins, no other middleware (per request).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CONFIG["server"].get("allow_origins", ["*"]),
@@ -102,41 +110,63 @@ app.add_middleware(
 
 @app.get("/health")
 async def health() -> JSONResponse:
-    return JSONResponse({
-        "status": "ok" if CACHE.loaded else "loading",
-        "public_url": PUBLIC_URL,
-        "cache": CACHE.status(),
-        "generation": CONFIG["generation"],
-        "quantization": CONFIG["model"]["quantization"],
-    })
+    out: dict[str, Any] = {"public_url": PUBLIC_URL,
+                           "models": {"human1": HUMAN1_ON, "veena": VEENA_ON}}
+    if HUMAN1_ON:
+        from static_memory_cache import CACHE as H1
+        out["human1"] = H1.status()
+    if VEENA_ON:
+        from veena_cache import CACHE as VC
+        out["veena"] = VC.status()
+    return JSONResponse(out)
 
 
 @app.get("/config")
 async def get_config() -> JSONResponse:
     safe = json.loads(json.dumps(CONFIG))
-    safe.get("ngrok", {}).pop("authtoken", None)  # never leak the token
+    safe.get("ngrok", {}).pop("authtoken", None)
     safe["public_url"] = PUBLIC_URL
     return JSONResponse(safe)
 
 
-@app.websocket("/ws")
-async def ws_endpoint(websocket: WebSocket) -> None:
-    if not CACHE.loaded:
-        await websocket.accept()
-        await websocket.send_text(json.dumps({"type": "error", "message": "model not loaded yet"}))
-        await websocket.close()
-        return
+if HUMAN1_ON:
+    @app.websocket("/ws")
+    async def ws_human1(websocket: WebSocket) -> None:
+        from static_memory_cache import CACHE as H1
+        from moshi_session import MoshiSession
 
-    # Honor the concurrent-session cap.
-    if _SESSION_SEM.locked():
-        await websocket.accept()
-        await websocket.send_text(json.dumps({"type": "error", "message": "server busy: max sessions reached"}))
-        await websocket.close()
-        return
+        if not H1.loaded:
+            await websocket.accept()
+            await websocket.send_text(json.dumps({"type": "error", "message": "model not loaded"}))
+            await websocket.close()
+            return
+        if _H1_SEM.locked():
+            await websocket.accept()
+            await websocket.send_text(json.dumps({"type": "error", "message": "server busy"}))
+            await websocket.close()
+            return
+        async with _H1_SEM:
+            await MoshiSession(websocket, H1, CONFIG).run()
 
-    async with _SESSION_SEM:
-        session = MoshiSession(websocket, CACHE, CONFIG)
-        await session.run()
+
+if VEENA_ON:
+    @app.websocket("/veena")
+    async def ws_veena(websocket: WebSocket) -> None:
+        from veena_cache import CACHE as VC
+        from veena_session import VeenaSession
+
+        if not VC.loaded:
+            await websocket.accept()
+            await websocket.send_text(json.dumps({"type": "error", "message": "veena not loaded"}))
+            await websocket.close()
+            return
+        if _VEENA_SEM.locked():
+            await websocket.accept()
+            await websocket.send_text(json.dumps({"type": "error", "message": "server busy: max sessions"}))
+            await websocket.close()
+            return
+        async with _VEENA_SEM:
+            await VeenaSession(websocket, VC).run()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -144,7 +174,6 @@ async def index() -> HTMLResponse:
     return HTMLResponse((HERE / "static" / "index.html").read_text())
 
 
-# Serve any extra static assets (none required, but handy).
 app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
 
 

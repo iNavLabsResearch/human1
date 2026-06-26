@@ -1,18 +1,41 @@
-# Human-1 — FastAPI Full-Duplex Server
+# Human-1 + Veena — FastAPI Voice Server
 
-A FastAPI + WebSocket server for [`JoshTalksAI/Human-1`](https://huggingface.co/JoshTalksAI/Human-1),
-a Moshi-based Hindi full-duplex conversational model. Loads the model **INT8** on
-startup, exposes port **5050** through **ngrok**, and ships a browser UI for
-real-time two-way voice.
+One FastAPI + WebSocket server hosting **two** models, each toggled by an
+`enabled` flag in `config.json`:
+
+- **veena** — [`maya-research/Veena`](https://huggingface.co/maya-research/Veena)
+  (Llama-3B + SNAC 24 kHz) streaming **Text-to-Speech**. *Enabled by default.*
+- **human1** — [`JoshTalksAI/Human-1`](https://huggingface.co/JoshTalksAI/Human-1)
+  (Moshi) Hindi **full-duplex** voice. *Disabled by default.*
+
+It loads each enabled model on startup, exposes port **5050** via **ngrok**, and
+ships a browser UI with a live latency-breakdown table and a concurrency tester.
 
 ```
-config.json              all tunables (server, ngrok, model, generation, audio)
-setup.sh                 installs torch/moshi/pyngrok/... and downloads weights
-static_memory_cache.py   loads + quantizes + caches the model once, on startup
-moshi_session.py         per-connection full-duplex streaming loop
-server.py                FastAPI app, /ws endpoint, ngrok tunnel
-static/index.html        UI: base URL, system prompt, voice id, stats
+config.json              all tunables; per-model `enabled` flags
+setup.sh                 reads the flags; installs deps + downloads enabled weights
+static_memory_cache.py   Human-1 (Moshi) load/quantize/cache + duplex generation
+moshi_session.py         Human-1 per-connection full-duplex streaming loop
+veena_cache.py           Veena LLM + SNAC load/quantize/cache
+veena_session.py         Veena streaming TTS + per-chunk latency breakdown
+server.py                FastAPI app, /ws + /veena endpoints, ngrok tunnel
+static/index.html        UI: Veena TTS (+ concurrency table) and Human-1 duplex
 ```
+
+## Veena TTS
+
+`/veena` WebSocket. Client sends `{"type":"tts","req_id":..,"text":..,"speaker":..,
+"temperature":..,"top_p":..}`; server streams, per audio chunk, a JSON header
+followed by Int16-LE PCM @ 24 kHz. The header carries the **latency breakdown**:
+
+- `gen_ms` — model time since request start (cumulative)
+- `gen_delta` — model time for *this* chunk
+- `server_ms` — total server handling time (≈ `gen_ms`)
+
+The UI adds **client recv ms** (wall time since the text was submitted) and shows
+every chunk in a table. Speakers (`kavya`, `agastya`, `maitri`, `vinaya`) are
+selectable in the UI. The **Concurrency** field opens N parallel WSS connections
+with the same text and tabulates each request's per-chunk latency.
 
 ## Run (on a GPU box — Kaggle / Colab / remote H100)
 

@@ -11,7 +11,8 @@
     "domain": null,
     "region": "in"
   },
-  "model": {
+  "human1": {
+    "enabled": false,
     "hf_repo": "JoshTalksAI/Human-1",
     "base_repo": "kyutai/moshiko-pytorch-bf16",
     "weights_dir": "./weights",
@@ -24,18 +25,48 @@
     "dtype": "bfloat16",
     "device_map": "single",
     "distributed": false,
-    "warmup_steps": 4
+    "warmup_steps": 4,
+    "generation": {
+      "use_sampling": true,
+      "temp": 0.8,
+      "temp_text": 0.7,
+      "top_k": 250,
+      "top_k_text": 25
+    },
+    "audio": {
+      "sample_rate": 24000,
+      "frame_rate": 12.5,
+      "channels": 1
+    }
   },
-  "generation": {
-    "use_sampling": true,
-    "temp": 0.8,
-    "temp_text": 0.7,
-    "top_k": 250,
-    "top_k_text": 25
-  },
-  "audio": {
+  "veena": {
+    "enabled": true,
+    "hf_repo": "maya-research/Veena",
+    "snac_repo": "hubertsiuzdak/snac_24khz",
+    "weights_dir": "./veena_weights",
+    "quantization": "4bit",
+    "device": "cuda",
+    "dtype": "bfloat16",
+    "device_map": "auto",
+    "warmup": true,
     "sample_rate": 24000,
-    "frame_rate": 12.5,
-    "channels": 1
+    "speakers": ["kavya", "agastya", "maitri", "vinaya"],
+    "default_speaker": "kavya",
+    "max_concurrent_sessions": 8,
+    "tokens": {
+      "start_of_speech": 128257,
+      "end_of_speech": 128258,
+      "start_of_human": 128259,
+      "end_of_human": 128260,
+      "start_of_ai": 128261,
+      "end_of_ai": 128262,
+      "audio_code_base_offset": 128266
+    },
+    "generation": {
+      "temperature": 0.4,
+      "top_p": 0.9,
+      "repetition_penalty": 1.05,
+      "max_new_tokens": 700
+    }
   }
 }

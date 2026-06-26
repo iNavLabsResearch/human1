@@ -93,7 +93,7 @@ class StaticMemoryCache:
         from moshi.models import loaders
 
         self.config = config
-        mcfg = config["model"]
+        mcfg = config["human1"]
 
         # --- device + dtype -------------------------------------------------
         want_device = mcfg.get("device", "cuda")
@@ -242,7 +242,7 @@ def config_lmgen(lm, config: dict[str, Any]):
     """Build a fresh LMGen (per-connection generation state) from config."""
     from moshi.models import LMGen
 
-    g = config["generation"]
+    g = config["human1"]["generation"]
     return LMGen(
         lm,
         use_sampling=g.get("use_sampling", True),

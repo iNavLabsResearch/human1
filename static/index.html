@@ -3,251 +3,286 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Human-1 — Hindi Full-Duplex</title>
+<title>Veena TTS · Human-1 Duplex</title>
 <style>
   :root { --bg:#0d1117; --panel:#161b22; --line:#30363d; --txt:#e6edf3;
-          --mut:#8b949e; --accent:#2f81f7; --ok:#3fb950; --bad:#f85149; }
+          --mut:#8b949e; --accent:#2f81f7; --ok:#3fb950; --bad:#f85149; --warn:#d29922; }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif;
-         background:var(--bg); color:var(--txt); }
-  .wrap { max-width:880px; margin:0 auto; padding:24px; }
-  h1 { font-size:20px; margin:0 0 4px; }
-  .sub { color:var(--mut); font-size:13px; margin-bottom:20px; }
-  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px;
-           padding:16px; margin-bottom:16px; }
+  body { margin:0; font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--txt); }
+  .wrap { max-width:1040px; margin:0 auto; padding:24px; }
+  h1 { font-size:20px; margin:0 0 4px; } .sub { color:var(--mut); font-size:13px; margin-bottom:18px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
   label { display:block; font-size:12px; color:var(--mut); margin:10px 0 4px; }
-  input, textarea, select { width:100%; background:#0d1117; color:var(--txt);
-           border:1px solid var(--line); border-radius:6px; padding:9px 10px; font-size:14px; }
-  textarea { resize:vertical; min-height:60px; }
-  .row { display:flex; gap:12px; } .row > * { flex:1; }
-  button { cursor:pointer; border:none; border-radius:6px; padding:11px 18px;
-           font-size:14px; font-weight:600; }
+  input, textarea, select { width:100%; background:#0d1117; color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:9px 10px; font-size:14px; }
+  textarea { resize:vertical; min-height:64px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; } .row > * { flex:1; min-width:120px; }
+  button { cursor:pointer; border:none; border-radius:6px; padding:11px 18px; font-size:14px; font-weight:600; }
   .btn-go { background:var(--accent); color:#fff; } .btn-go:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-2 { background:#21262d; color:var(--txt); border:1px solid var(--line); }
   .btn-stop { background:var(--bad); color:#fff; }
+  .tabs { display:flex; gap:8px; margin-bottom:16px; }
+  .tab { padding:9px 16px; border:1px solid var(--line); border-radius:8px; background:var(--panel); cursor:pointer; font-size:14px; }
+  .tab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .tab.disabled { opacity:.4; cursor:not-allowed; }
+  .hidden { display:none; }
   .dot { display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--mut); margin-right:6px; }
-  .dot.on { background:var(--ok); } .dot.err { background:var(--bad); }
-  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .dot.on{background:var(--ok);} .dot.err{background:var(--bad);}
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:right; padding:6px 8px; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; }
+  th:first-child, td:first-child { text-align:left; }
+  thead th { color:var(--mut); font-weight:600; position:sticky; top:0; background:var(--panel); }
+  .tbl-wrap { max-height:340px; overflow:auto; border:1px solid var(--line); border-radius:8px; }
+  .pill { font-size:11px; padding:1px 7px; border-radius:10px; background:#21262d; color:var(--mut); }
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:12px; }
   .stat { background:#0d1117; border:1px solid var(--line); border-radius:8px; padding:12px; text-align:center; }
-  .stat .v { font-size:22px; font-weight:700; } .stat .k { font-size:11px; color:var(--mut); margin-top:2px; }
-  #log { height:180px; overflow:auto; background:#0d1117; border:1px solid var(--line);
-         border-radius:8px; padding:12px; font-size:14px; line-height:1.5; }
-  #log .t { color:#79c0ff; } #log .sys { color:var(--mut); font-size:12px; }
+  .stat .v{font-size:20px;font-weight:700;} .stat .k{font-size:11px;color:var(--mut);margin-top:2px;}
+  #log { height:170px; overflow:auto; background:#0d1117; border:1px solid var(--line); border-radius:8px; padding:12px; font-size:14px; line-height:1.5; }
+  #log .t{color:#79c0ff;} .muted{color:var(--mut);font-size:12px;}
   .vu { height:8px; background:#0d1117; border-radius:4px; overflow:hidden; margin-top:6px; }
-  .vu > div { height:100%; width:0%; background:var(--ok); transition:width .05s; }
+  .vu>div{height:100%;width:0%;background:var(--ok);}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Human-1 · Hindi Full-Duplex Voice</h1>
-  <div class="sub">Moshi-based · 24 kHz / 12.5 Hz · INT8</div>
+  <h1>Veena TTS &amp; Human-1 Duplex</h1>
+  <div class="sub" id="banner">Set the server base URL, then pick a tab.</div>
 
   <div class="panel">
-    <label>Server Base URL (the remote GPU server, e.g. the ngrok URL)</label>
-    <input id="baseUrl" placeholder="https://xxxx.ngrok-free.app  (leave blank = this page's origin)" />
+    <label>Server Base URL (remote GPU / ngrok URL — blank = this page's origin)</label>
     <div class="row">
-      <div>
-        <label>Voice ID</label>
-        <input id="voiceId" value="default" />
-      </div>
-      <div>
-        <label>&nbsp;</label>
-        <button id="testBtn" class="btn-go" style="width:100%;background:#21262d;color:var(--txt);border:1px solid var(--line)">Test /health</button>
-      </div>
+      <input id="baseUrl" placeholder="https://xxxx.ngrok-free.app" style="flex:3" />
+      <button id="healthBtn" class="btn-2" style="flex:1">Test /health</button>
     </div>
-    <label>System Prompt</label>
-    <textarea id="sysPrompt" placeholder="आप एक मददगार हिंदी सहायक हैं...">आप एक मददगार और दोस्ताना हिंदी बोलने वाले सहायक हैं।</textarea>
+    <div class="muted" id="health" style="margin-top:8px"></div>
   </div>
 
-  <div class="panel">
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div><span id="dot" class="dot"></span><span id="state">disconnected</span></div>
-      <div>
-        <button id="connectBtn" class="btn-go">▶ Connect &amp; Talk</button>
-        <button id="stopBtn" class="btn-stop" style="display:none">■ Stop</button>
+  <div class="tabs">
+    <div class="tab active" data-tab="veena">🔊 Veena TTS</div>
+    <div class="tab" data-tab="human1">🎙️ Human-1 Duplex</div>
+  </div>
+
+  <!-- ===================== VEENA ===================== -->
+  <div id="tab-veena">
+    <div class="panel">
+      <div class="row">
+        <div><label>Speaker (voice)</label><select id="vSpeaker"></select></div>
+        <div><label>Temperature</label><input id="vTemp" type="number" step="0.05" value="0.4" /></div>
+        <div><label>Top-p</label><input id="vTopP" type="number" step="0.05" value="0.9" /></div>
+        <div><label>Play audio</label>
+          <select id="vPlay"><option value="1">on (conn #0)</option><option value="0">off</option></select>
+        </div>
+      </div>
+      <label>Text</label>
+      <textarea id="vText">नमस्ते, मैं वीणा हूँ। आप कैसे हैं?</textarea>
+      <div class="row" style="margin-top:12px">
+        <div><label>Concurrency (parallel WSS connections)</label><input id="vConc" type="number" min="1" max="64" value="1" /></div>
+        <div style="display:flex;align-items:flex-end;gap:10px">
+          <button id="vSpeak" class="btn-go" style="flex:1">🚀 Run</button>
+          <button id="vClear" class="btn-2">Clear table</button>
+        </div>
       </div>
     </div>
-    <div class="vu"><div id="micVu"></div></div>
-  </div>
 
-  <div class="panel">
-    <div class="stats">
-      <div class="stat"><div class="v" id="sLat">–</div><div class="k">chunk latency (ms)</div></div>
-      <div class="stat"><div class="v" id="sRtf">–</div><div class="k">RTF (×realtime)</div></div>
-      <div class="stat"><div class="v" id="sPing">–</div><div class="k">ping (ms)</div></div>
-      <div class="stat"><div class="v" id="sFrames">0</div><div class="k">frames</div></div>
+    <div class="panel">
+      <div class="stats">
+        <div class="stat"><div class="v" id="kTtfa">–</div><div class="k">avg TTFA (ms)</div></div>
+        <div class="stat"><div class="v" id="kGen">–</div><div class="k">avg gen/chunk (ms)</div></div>
+        <div class="stat"><div class="v" id="kRecv">–</div><div class="k">avg recv/chunk (ms)</div></div>
+        <div class="stat"><div class="v" id="kConn">0</div><div class="k">connections done</div></div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>conn</th><th>chunk</th><th>gen ms<br><span class="muted">(model, cumul.)</span></th>
+            <th>gen Δ ms<br><span class="muted">(this chunk)</span></th>
+            <th>server ms<br><span class="muted">(≈ gen)</span></th>
+            <th>client recv ms<br><span class="muted">(since submit)</span></th>
+            <th>samples</th>
+          </tr></thead>
+          <tbody id="vRows"></tbody>
+        </table>
+      </div>
+      <div class="muted" id="vSummary" style="margin-top:8px"></div>
     </div>
   </div>
 
-  <div class="panel">
-    <label>Transcript (Moshi text)</label>
-    <div id="log"></div>
+  <!-- ===================== HUMAN-1 ===================== -->
+  <div id="tab-human1" class="hidden">
+    <div class="panel">
+      <label>Voice ID</label><input id="h1Voice" value="default" />
+      <label>System Prompt</label>
+      <textarea id="h1Sys">आप एक मददगार और दोस्ताना हिंदी बोलने वाले सहायक हैं।</textarea>
+    </div>
+    <div class="panel">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div><span id="h1Dot" class="dot"></span><span id="h1State">disconnected</span></div>
+        <div>
+          <button id="h1Connect" class="btn-go">▶ Connect &amp; Talk</button>
+          <button id="h1Stop" class="btn-stop hidden">■ Stop</button>
+        </div>
+      </div>
+      <div class="vu"><div id="h1Vu"></div></div>
+      <div class="stats" style="margin-top:12px">
+        <div class="stat"><div class="v" id="h1Lat">–</div><div class="k">chunk latency (ms)</div></div>
+        <div class="stat"><div class="v" id="h1Rtf">–</div><div class="k">RTF</div></div>
+        <div class="stat"><div class="v" id="h1Ping">–</div><div class="k">ping (ms)</div></div>
+        <div class="stat"><div class="v" id="h1Frames">0</div><div class="k">frames</div></div>
+      </div>
+      <div id="log"></div>
+    </div>
   </div>
 </div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-let ws, audioCtx, micStream, micNode, playTime = 0, sampleRate = 24000;
-let pingTimer = null;
+const baseHttp = () => { const v=$("baseUrl").value.trim(); return v?v.replace(/\/+$/,""):location.origin; };
+const wsBase = () => baseHttp().replace(/^http/,"ws");
 
-function baseHttp() {
-  const v = $("baseUrl").value.trim();
-  return v ? v.replace(/\/+$/, "") : location.origin;
+// ---- shared AudioContext for playback ----
+let AC=null;
+function ac(){ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)({sampleRate:24000}); return AC; }
+function makePlayer(){ const c=ac(); return { t:c.currentTime, push(int16){
+  const f=new Float32Array(int16.length); for(let i=0;i<int16.length;i++) f[i]=int16[i]/32768;
+  const b=c.createBuffer(1,f.length,24000); b.copyToChannel(f,0);
+  const s=c.createBufferSource(); s.buffer=b; s.connect(c.destination);
+  const now=c.currentTime; if(this.t<now+0.02) this.t=now+0.02; s.start(this.t); this.t+=b.duration;
+}};}
+
+// ---- tabs ----
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+  if(t.classList.contains("disabled")) return;
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  t.classList.add("active");
+  $("tab-veena").classList.toggle("hidden", t.dataset.tab!=="veena");
+  $("tab-human1").classList.toggle("hidden", t.dataset.tab!=="human1");
+});
+
+// ---- health / config ----
+async function loadHealth(){
+  try{
+    const h=await (await fetch(baseHttp()+"/health")).json();
+    const parts=[];
+    if(h.models?.veena) parts.push(`veena=${h.veena?.loaded?"ready":"loading"} (${h.veena?.device})`);
+    if(h.models?.human1) parts.push(`human1=${h.human1?.loaded?"ready":"loading"} (${h.human1?.device})`);
+    $("health").innerHTML = `<span class="dot ${ (h.veena?.loaded||h.human1?.loaded)?"on":"err"}"></span>${parts.join(" · ")||"no model enabled"}`;
+    // enable/disable tabs
+    document.querySelector('.tab[data-tab="human1"]').classList.toggle("disabled", !h.models?.human1);
+    document.querySelector('.tab[data-tab="veena"]').classList.toggle("disabled", !h.models?.veena);
+    // speakers
+    const cfg=await (await fetch(baseHttp()+"/config")).json();
+    const spk = cfg.veena?.speakers || ["kavya","agastya","maitri","vinaya"];
+    $("vSpeaker").innerHTML = spk.map(s=>`<option>${s}</option>`).join("");
+    if(cfg.veena?.default_speaker) $("vSpeaker").value=cfg.veena.default_speaker;
+  }catch(e){ $("health").innerHTML=`<span class="dot err"></span>health failed: ${e}`; }
 }
-function wsUrl() {
-  const b = baseHttp();
-  return b.replace(/^http/, "ws") + "/ws";
-}
-function logLine(html, cls) {
-  const el = $("log");
-  const d = document.createElement("div");
-  if (cls) d.className = cls;
-  d.innerHTML = html;
-  el.appendChild(d); el.scrollTop = el.scrollHeight;
-}
-function setState(s, kind) {
-  $("state").textContent = s;
-  const dot = $("dot"); dot.className = "dot" + (kind === "on" ? " on" : kind === "err" ? " err" : "");
+$("healthBtn").onclick=loadHealth;
+window.addEventListener("load", ()=>{ ac(); loadHealth(); });
+
+// ================= VEENA TTS / CONCURRENCY =================
+let connDone=0, allRecv=[], allGen=[], allTtfa=[];
+$("vClear").onclick=()=>{ $("vRows").innerHTML=""; connDone=0; allRecv=[]; allGen=[]; allTtfa=[];
+  $("kTtfa").textContent="–"; $("kGen").textContent="–"; $("kRecv").textContent="–"; $("kConn").textContent="0"; $("vSummary").textContent=""; };
+
+function addRow(conn, idx, h, clientMs){
+  const tr=document.createElement("tr");
+  tr.innerHTML=`<td>#${conn}</td><td>${idx}</td><td>${h.gen_ms}</td><td>${h.gen_delta}</td>`+
+               `<td>${h.server_ms}</td><td>${clientMs.toFixed(1)}</td><td>${h.samples}</td>`;
+  $("vRows").appendChild(tr);
+  $("vRows").parentElement.parentElement.scrollTop=1e9;
 }
 
-$("testBtn").onclick = async () => {
-  try {
-    const r = await fetch(baseHttp() + "/health");
-    const j = await r.json();
-    logLine(`<span class="sys">/health → ${j.status} · device=${j.cache?.device} · quant=${j.quantization}</span>`);
-  } catch (e) { logLine(`<span class="sys" style="color:var(--bad)">/health failed: ${e}</span>`); }
-};
-
-// PCM Float32 [-1,1] -> Int16 LE bytes
-function floatToInt16(f32) {
-  const out = new Int16Array(f32.length);
-  for (let i = 0; i < f32.length; i++) {
-    let s = Math.max(-1, Math.min(1, f32[i]));
-    out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-  }
-  return out;
-}
-
-// Schedule an Int16 PCM chunk for gapless playback.
-function playChunk(int16) {
-  const f32 = new Float32Array(int16.length);
-  for (let i = 0; i < int16.length; i++) f32[i] = int16[i] / 32768;
-  const buf = audioCtx.createBuffer(1, f32.length, sampleRate);
-  buf.copyToChannel(f32, 0);
-  const src = audioCtx.createBufferSource();
-  src.buffer = buf; src.connect(audioCtx.destination);
-  const now = audioCtx.currentTime;
-  if (playTime < now + 0.02) playTime = now + 0.02;
-  src.start(playTime);
-  playTime += buf.duration;
-}
-
-async function connect() {
-  $("connectBtn").disabled = true;
-  setState("connecting…");
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-  await audioCtx.resume();
-  sampleRate = audioCtx.sampleRate;
-  playTime = audioCtx.currentTime;
-
-  micStream = await navigator.mediaDevices.getUserMedia({
-    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+function runConn(conn, text, speaker, temp, topp, play){
+  return new Promise((resolve)=>{
+    const url=wsBase()+"/veena";
+    const ws=new WebSocket(url); ws.binaryType="arraybuffer";
+    const player = play ? makePlayer() : null;
+    let submitTs=0, pending=null, first=null, recvs=[], gens=[], n=0;
+    ws.onopen=()=>{ submitTs=performance.now();
+      ws.send(JSON.stringify({type:"tts", req_id:"c"+conn, text, speaker,
+        temperature:parseFloat(temp), top_p:parseFloat(topp)})); };
+    ws.onmessage=(ev)=>{
+      if(typeof ev.data==="string"){
+        const m=JSON.parse(ev.data);
+        if(m.type==="chunk"){ pending=m; }
+        else if(m.type==="end"){ ws.close();
+          finishConn(conn, first, gens, recvs); resolve(); }
+        else if(m.type==="error"){ $("vSummary").innerHTML=`<span style="color:var(--bad)">conn#${conn} error: ${m.message}</span>`; ws.close(); resolve(); }
+      } else if(pending){
+        const clientMs=performance.now()-submitTs;
+        if(first===null) first=clientMs;
+        recvs.push(clientMs);
+        gens.push(pending.gen_delta);
+        addRow(conn, pending.index, pending, clientMs);
+        if(player) player.push(new Int16Array(ev.data));
+        n++; pending=null;
+      }
+    };
+    ws.onerror=()=>{ resolve(); };
+    ws.onclose=()=>{};
   });
-
-  // AudioWorklet capture (falls back to ScriptProcessor if unavailable)
-  const src = audioCtx.createMediaStreamSource(micStream);
-  const workletCode = `
-    class Cap extends AudioWorkletProcessor {
-      process(inputs) {
-        const ch = inputs[0][0];
-        if (ch) this.port.postMessage(ch.slice(0));
-        return true;
-      }
-    }
-    registerProcessor('cap', Cap);`;
-  try {
-    const url = URL.createObjectURL(new Blob([workletCode], { type: "application/javascript" }));
-    await audioCtx.audioWorklet.addModule(url);
-    micNode = new AudioWorkletNode(audioCtx, "cap");
-    micNode.port.onmessage = (e) => onMicFrame(e.data);
-    src.connect(micNode);
-  } catch (err) {
-    const proc = audioCtx.createScriptProcessor(2048, 1, 1);
-    proc.onaudioprocess = (e) => onMicFrame(e.inputBuffer.getChannelData(0));
-    src.connect(proc); proc.connect(audioCtx.destination); micNode = proc;
-  }
-
-  ws = new WebSocket(wsUrl());
-  ws.binaryType = "arraybuffer";
-  ws.onopen = () => {
-    setState("connected", "on");
-    ws.send(JSON.stringify({
-      type: "start",
-      system_prompt: $("sysPrompt").value,
-      voice_id: $("voiceId").value,
-      sample_rate: sampleRate,
-    }));
-    pingTimer = setInterval(() => {
-      if (ws.readyState === 1) ws.send(JSON.stringify({ type: "ping", t: performance.now() }));
-    }, 1000);
-    $("connectBtn").style.display = "none";
-    $("stopBtn").style.display = "inline-block";
-  };
-  ws.onmessage = (ev) => {
-    if (typeof ev.data === "string") {
-      const m = JSON.parse(ev.data);
-      if (m.type === "text") { appendText(m.text); }
-      else if (m.type === "stats") {
-        $("sLat").textContent = m.chunk_latency_ms;
-        $("sRtf").textContent = m.rtf;
-        $("sFrames").textContent = m.frames;
-      } else if (m.type === "pong") {
-        $("sPing").textContent = (performance.now() - m.t).toFixed(0);
-      } else if (m.type === "ready") {
-        sampleRate = m.sample_rate || sampleRate;
-        logLine(`<span class="sys">ready · ${m.sample_rate}Hz · frame ${m.frame_size}</span>`);
-      } else if (m.type === "error") {
-        logLine(`<span class="sys" style="color:var(--bad)">error: ${m.message}</span>`);
-      }
-    } else {
-      playChunk(new Int16Array(ev.data));
-    }
-  };
-  ws.onerror = () => setState("error", "err");
-  ws.onclose = () => { setState("disconnected"); cleanup(); };
-  $("connectBtn").disabled = false;
 }
 
-let curLine = null;
-function appendText(t) {
-  if (!curLine) { curLine = document.createElement("div"); curLine.className = "t"; $("log").appendChild(curLine); }
-  curLine.textContent += t;
-  $("log").scrollTop = $("log").scrollHeight;
+function finishConn(conn, ttfa, gens, recvs){
+  connDone++; $("kConn").textContent=connDone;
+  if(ttfa!=null) allTtfa.push(ttfa);
+  gens.forEach(g=>allGen.push(g));
+  const avg=a=>a.length?(a.reduce((x,y)=>x+y,0)/a.length):null;
+  const at=avg(allTtfa), ag=avg(allGen);
+  if(at!=null) $("kTtfa").textContent=at.toFixed(0);
+  if(ag!=null) $("kGen").textContent=ag.toFixed(1);
 }
 
-function onMicFrame(f32) {
-  // VU meter
-  let peak = 0; for (let i = 0; i < f32.length; i++) peak = Math.max(peak, Math.abs(f32[i]));
-  $("micVu").style.width = Math.min(100, peak * 140) + "%";
-  if (ws && ws.readyState === 1) ws.send(floatToInt16(f32).buffer);
-}
-
-function cleanup() {
-  if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }
-  try { micNode && micNode.disconnect(); } catch (e) {}
-  try { micStream && micStream.getTracks().forEach(t => t.stop()); } catch (e) {}
-  try { audioCtx && audioCtx.close(); } catch (e) {}
-  $("connectBtn").style.display = "inline-block";
-  $("connectBtn").disabled = false;
-  $("stopBtn").style.display = "none";
-  curLine = null;
-}
-
-$("connectBtn").onclick = connect;
-$("stopBtn").onclick = () => {
-  try { ws && ws.send(JSON.stringify({ type: "stop" })); } catch (e) {}
-  try { ws && ws.close(); } catch (e) {}
-  cleanup();
+$("vSpeak").onclick=async ()=>{
+  ac(); await ac().resume();
+  const N=Math.max(1, Math.min(64, parseInt($("vConc").value)||1));
+  const text=$("vText").value, speaker=$("vSpeaker").value, temp=$("vTemp").value, topp=$("vTopP").value;
+  const playOn=$("vPlay").value==="1";
+  $("vSpeak").disabled=true;
+  $("vSummary").textContent=`launching ${N} connection(s)...`;
+  const t0=performance.now();
+  const jobs=[]; for(let i=0;i<N;i++) jobs.push(runConn(i, text, speaker, temp, topp, playOn && i===0));
+  await Promise.all(jobs);
+  const wall=performance.now()-t0;
+  // overall avg client recv per chunk
+  const rows=[...$("vRows").querySelectorAll("tr")];
+  const recvVals=rows.map(r=>parseFloat(r.children[5].textContent)).filter(x=>!isNaN(x));
+  const avgRecv = recvVals.length? recvVals.reduce((a,b)=>a+b,0)/recvVals.length : null;
+  if(avgRecv!=null) $("kRecv").textContent=avgRecv.toFixed(1);
+  $("vSummary").innerHTML=`done · ${N} connection(s) · ${rows.length} chunks · wall ${wall.toFixed(0)} ms`;
+  $("vSpeak").disabled=false;
 };
+
+// ================= HUMAN-1 DUPLEX =================
+let h1ws,h1Stream,h1Node,h1Play,h1Ping;
+function h1Set(s,k){ $("h1State").textContent=s; $("h1Dot").className="dot"+(k?(" "+k):""); }
+function f2i16(f){ const o=new Int16Array(f.length); for(let i=0;i<f.length;i++){let s=Math.max(-1,Math.min(1,f[i])); o[i]=s<0?s*0x8000:s*0x7fff;} return o; }
+async function h1Connect(){
+  $("h1Connect").disabled=true; h1Set("connecting…");
+  const c=ac(); await c.resume(); h1Play=makePlayer();
+  h1Stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true}});
+  const src=c.createMediaStreamSource(h1Stream);
+  const code=`class Cap extends AudioWorkletProcessor{process(i){const ch=i[0][0]; if(ch)this.port.postMessage(ch.slice(0)); return true;}} registerProcessor('cap',Cap);`;
+  try{ const u=URL.createObjectURL(new Blob([code],{type:"application/javascript"})); await c.audioWorklet.addModule(u);
+    h1Node=new AudioWorkletNode(c,"cap"); h1Node.port.onmessage=e=>h1Mic(e.data); src.connect(h1Node);
+  }catch(e){ const p=c.createScriptProcessor(2048,1,1); p.onaudioprocess=e=>h1Mic(e.inputBuffer.getChannelData(0)); src.connect(p); p.connect(c.destination); h1Node=p; }
+  h1ws=new WebSocket(wsBase()+"/ws"); h1ws.binaryType="arraybuffer";
+  h1ws.onopen=()=>{ h1Set("connected","on");
+    h1ws.send(JSON.stringify({type:"start", system_prompt:$("h1Sys").value, voice_id:$("h1Voice").value}));
+    h1Ping=setInterval(()=>{ if(h1ws.readyState===1) h1ws.send(JSON.stringify({type:"ping",t:performance.now()})); },1000);
+    $("h1Connect").classList.add("hidden"); $("h1Stop").classList.remove("hidden"); };
+  h1ws.onmessage=ev=>{ if(typeof ev.data==="string"){ const m=JSON.parse(ev.data);
+      if(m.type==="text"){ let l=$("log").lastElementChild; if(!l||l.className!=="t"){l=document.createElement("div"); l.className="t"; $("log").appendChild(l);} l.textContent+=m.text; $("log").scrollTop=1e9; }
+      else if(m.type==="stats"){ $("h1Lat").textContent=m.chunk_latency_ms; $("h1Rtf").textContent=m.rtf; $("h1Frames").textContent=m.frames; }
+      else if(m.type==="pong"){ $("h1Ping").textContent=(performance.now()-m.t).toFixed(0); }
+      else if(m.type==="error"){ const d=document.createElement("div"); d.className="muted"; d.style.color="var(--bad)"; d.textContent="error: "+m.message; $("log").appendChild(d); }
+    } else { h1Play.push(new Int16Array(ev.data)); } };
+  h1ws.onclose=()=>{ h1Set("disconnected"); h1Cleanup(); };
+  h1ws.onerror=()=>h1Set("error","err"); $("h1Connect").disabled=false;
+}
+function h1Mic(f){ let p=0; for(let i=0;i<f.length;i++)p=Math.max(p,Math.abs(f[i])); $("h1Vu").style.width=Math.min(100,p*140)+"%"; if(h1ws&&h1ws.readyState===1) h1ws.send(f2i16(f).buffer); }
+function h1Cleanup(){ if(h1Ping)clearInterval(h1Ping); try{h1Node&&h1Node.disconnect();}catch(e){} try{h1Stream&&h1Stream.getTracks().forEach(t=>t.stop());}catch(e){} $("h1Connect").classList.remove("hidden"); $("h1Connect").disabled=false; $("h1Stop").classList.add("hidden"); }
+$("h1Connect").onclick=h1Connect;
+$("h1Stop").onclick=()=>{ try{h1ws&&h1ws.send(JSON.stringify({type:"stop"}));}catch(e){} try{h1ws&&h1ws.close();}catch(e){} h1Cleanup(); };
 </script>
 </body>
 </html>

@@ -5,17 +5,21 @@ websockets>=12.0
 pyngrok>=7.1
 numpy>=1.24
 
-# --- Model stack (Moshi / Human-1) ---
 # torch is installed separately in setup.sh to match the CUDA build of the host.
-moshi>=0.2.1
 huggingface_hub>=0.23
 safetensors>=0.4
-sentencepiece>=0.2
 soundfile>=0.12
+
+# --- Human-1 (Moshi) ---
+moshi>=0.2.1
+sentencepiece>=0.2
 sphn>=0.1.4
+torchao>=0.7.0          # INT8 weight-only quantization
 
-# --- INT8 quantization (weight-only) ---
-torchao>=0.7.0
+# --- Veena (Llama + SNAC TTS) ---
+transformers>=4.43
+snac>=1.2.0
+bitsandbytes>=0.43      # 4bit / int8 quantization
 
-# --- Multi-GPU dispatch (optional, for Kaggle 2x GPU) ---
+# --- Multi-GPU dispatch (Kaggle 2x GPU) ---
 accelerate>=0.30
