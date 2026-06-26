@@ -17,8 +17,9 @@ Reported per request: FCL (first-chunk latency) and RTF.
 Wire protocol
 -------------
 Client -> server:
-    {"type":"tts","req_id":str,"text":str,"language":str,"emotion":str,
-     "speaker_token":str|null,"temperature":float,"top_p":float}
+    {"type":"tts","req_id":str,"text":str,"voice":str,"language":str,
+     "emotion":str,"temperature":float,"top_p":float}
+    # voice = a MioTTS speaker preset name (en_female / en_male / jp_female / jp_male)
 
 Server -> client:
     text {"type":"begin","req_id":str,"sample_rate":int,"server_ts":ms}
@@ -64,28 +65,31 @@ def _make_token_streamer():
     return TokenStreamer()
 
 
-def _build_inputs(cache, text: str, emotion: Optional[str], speaker_token: Optional[str]):
+def _build_inputs(cache, text: str, emotion: Optional[str]):
     """Qwen3 chat-template prompt; emotion tag appended at the end of the text."""
     content = text.strip()
     if emotion:
         content = f"{content} <{emotion}>"
-    if speaker_token:                       # experimental: <|s_N|> prefix
-        content = f"{speaker_token} {content}"
     messages = [{"role": "user", "content": content}]
     prompt = cache.tokenizer.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True)
     return cache.tokenizer(prompt, return_tensors="pt").to(cache.model.device)
 
 
-def _decode(cache, codes: list[int]):
-    """Decode a flat list of MioCodec codes -> float32 PCM (full context)."""
+def _decode(cache, codes: list[int], global_embedding):
+    """Decode flat MioCodec content tokens -> float32 PCM (full context).
+
+    MioCodecModel.decode(global_embedding=<1D speaker emb>,
+                         content_token_indices=<1D long>, target_audio_length=None)
+    """
     import torch
 
-    if not codes:
+    if not codes or global_embedding is None:
         return None
-    ct = torch.tensor([codes], dtype=torch.long, device=cache.codec_device).unsqueeze(0)  # [1,1,T]
+    idx = torch.tensor(codes, dtype=torch.long, device=cache.codec_device)  # (seq_len,)
     with torch.no_grad():
-        wav = cache.codec.decode(ct)
+        wav = cache.codec.decode(global_embedding=global_embedding,
+                                 content_token_indices=idx)
     return wav.squeeze().clamp(-1, 1).float().cpu().numpy()
 
 
@@ -94,7 +98,7 @@ def _to_i16(pcm: np.ndarray) -> bytes:
 
 
 def synth_blocking(cache, text: str, emotion: Optional[str] = None,
-                   speaker_token: Optional[str] = None,
+                   voice: Optional[str] = None,
                    temperature: float = 0.9, top_p: float = 0.9) -> Iterator[bytes]:
     """Blocking generator yielding Int16 PCM chunks as they are produced."""
     import torch
@@ -105,8 +109,9 @@ def synth_blocking(cache, text: str, emotion: Optional[str] = None,
     vsize = int(mcfg["audio_vocab_size"])
     eos_ids = set(mcfg.get("eos_token_ids", [151645, 151643]))
     decode_every = int(mcfg.get("decode_every", 16))
+    global_embedding = cache.global_embedding(voice)
 
-    inputs = _build_inputs(cache, text, emotion, speaker_token)
+    inputs = _build_inputs(cache, text, emotion)
 
     streamer = _make_token_streamer()
     gen_kwargs = dict(
@@ -134,12 +139,12 @@ def synth_blocking(cache, text: str, emotion: Optional[str] = None,
         if offset <= tok < offset + vsize:
             audio_tokens.append(tok - offset)
             if len(audio_tokens) % decode_every == 0:
-                wav = _decode(cache, audio_tokens)
+                wav = _decode(cache, audio_tokens, global_embedding)
                 if wav is not None and wav.shape[0] > sent:
                     yield _to_i16(wav[sent:])
                     sent = wav.shape[0]
     # final flush
-    wav = _decode(cache, audio_tokens)
+    wav = _decode(cache, audio_tokens, global_embedding)
     if wav is not None and wav.shape[0] > sent:
         yield _to_i16(wav[sent:])
     thread.join(timeout=1.0)
@@ -199,7 +204,7 @@ class MioSession:
         req_id = data.get("req_id", "req")
         text = (data.get("text") or "").strip()
         emotion = data.get("emotion") or None
-        speaker_token = data.get("speaker_token") or None
+        voice = data.get("voice") or self.cache.config["mio"].get("default_preset")
         temperature = float(data.get("temperature", 0.9))
         top_p = float(data.get("top_p", 0.9))
 
@@ -210,15 +215,15 @@ class MioSession:
         await self._out_q.put({"type": "begin", "req_id": req_id,
                                "sample_rate": self.cache.sample_rate,
                                "server_ts": time.time() * 1000.0})
-        await asyncio.to_thread(self._run_synth, req_id, text, emotion, speaker_token, temperature, top_p)
+        await asyncio.to_thread(self._run_synth, req_id, text, emotion, voice, temperature, top_p)
 
-    def _run_synth(self, req_id, text, emotion, speaker_token, temperature, top_p) -> None:
+    def _run_synth(self, req_id, text, emotion, voice, temperature, top_p) -> None:
         t_start = time.perf_counter()
         index = 0
         fcl_ms = None
         total_samples = 0
         try:
-            for chunk in synth_blocking(self.cache, text, emotion, speaker_token, temperature, top_p):
+            for chunk in synth_blocking(self.cache, text, emotion, voice, temperature, top_p):
                 now = time.perf_counter()
                 gen_ms = (now - t_start) * 1000.0
                 if fcl_ms is None:

@@ -138,17 +138,31 @@ PY
 fi
 
 if [ "$MIO_ON" = "1" ]; then
-    echo "Downloading Indic-Mio + MioCodec weights..."
+    echo "Downloading Indic-Mio + MioCodec weights + speaker presets..."
     python3 - <<'PY'
-import json
+import json, os, urllib.request
 from huggingface_hub import snapshot_download
 c = json.load(open("config.json"))["mio"]
 snapshot_download(repo_id=c["hf_repo"], local_dir=c["weights_dir"])
 try:
-    snapshot_download(repo_id=c["codec_repo"])  # cached for MioCodec.from_pretrained
+    snapshot_download(repo_id=c["codec_repo"])  # cached for MioCodecModel.from_pretrained
 except Exception as e:
     print("warn: codec prefetch:", e)
-print("Indic-Mio weights ready in", c["weights_dir"])
+# speaker presets (global embeddings) -- the real Indic-Mio "voices"
+pdir = c.get("presets_dir", "./mio_presets")
+os.makedirs(pdir, exist_ok=True)
+base = c.get("presets_raw_base")
+for name in c.get("presets", []):
+    dst = os.path.join(pdir, f"{name}.pt")
+    if os.path.exists(dst):
+        continue
+    url = f"{base}/{name}.pt"
+    try:
+        urllib.request.urlretrieve(url, dst)
+        print("preset:", name)
+    except Exception as e:
+        print(f"warn: could not fetch preset {name}: {e}")
+print("Indic-Mio weights ready in", c["weights_dir"], "; presets in", pdir)
 PY
 fi
 

@@ -36,12 +36,18 @@ is the Qwen3 chat template, audio tokens are `id - speech_offset` and decoded by
 `MioCodec.decode`. Streaming re-decodes with full context every `decode_every`
 tokens and emits the fresh tail.
 
-**Voices:** Indic-Mio has **no named voice IDs** — voice is zero-shot (speaker
-embeddings). The UI therefore selects **Language** (23) and **Emotion** (the
-documented tags: `happy/sad/angry/disgust/fear/surprise`, and English-specific
-ones). The model's `<|s_N|>` tokens are exposed as an **experimental** speaker
-selector (`config.json → mio.speaker_tokens`, default 0 = hidden). Word stress
-via `*word*`. Reports per request: **FCL** + **RTF**, with N-way concurrency.
+**Voices:** Indic-Mio voice is the codec **global (speaker) embedding**, supplied
+from MioTTS **speaker presets** — the `.pt` files (`en_female`, `en_male`,
+`jp_female`, `jp_male`) that `setup.sh` downloads into `mio.presets_dir`. The UI
+**Voice** dropdown selects one; `decode(global_embedding=preset,
+content_token_indices=tokens)` applies that timbre. (The model also takes
+**Language** + **Emotion** — `happy/sad/angry/disgust/fear/surprise`, plus
+English-specific tags — and word stress via `*word*`.) Reports per request:
+**FCL** + **RTF**, with N-way concurrency.
+
+> Shipped presets are en/jp only; they speak any language but in that speaker's
+> timbre. Drop your own `<name>.pt` global-embedding files into `mio_presets/`
+> and add the names to `config.json → mio.presets` to add voices.
 
 > Sample rate is read from the codec at load (`codec.sample_rate`), falling back
 > to `mio.sample_rate`. The model card example writes 44.1 kHz but the codec is

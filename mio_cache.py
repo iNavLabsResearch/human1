@@ -37,6 +37,8 @@ class MioCache:
 
         self.sample_rate = 24000
         self.languages: list[str] = []
+        self.presets: dict[str, Any] = {}      # name -> 1D global-embedding tensor
+        self.voices: list[str] = []
 
         self._lock = threading.Lock()
 
@@ -70,6 +72,7 @@ class MioCache:
             "device": str(self.device) if self.device else None,
             "sample_rate": self.sample_rate,
             "languages": self.languages,
+            "voices": self.voices,
         }
 
     # ------------------------------------------------------------------ #
@@ -150,15 +153,64 @@ class MioCache:
         except Exception:
             self.codec_device = self.device
 
+        # speaker/voice presets (global embeddings) -- these are the real voices
+        self._load_presets(mcfg)
+
         if mcfg.get("warmup", True):
             self._warmup()
+
+    def _load_presets(self, mcfg: dict[str, Any]) -> None:
+        """Load .pt preset speaker embeddings -> 1D float tensors on the codec."""
+        import torch
+        from pathlib import Path
+
+        pdir = Path(mcfg.get("presets_dir", "./mio_presets"))
+        for name in mcfg.get("presets", []):
+            path = pdir / f"{name}.pt"
+            if not path.exists():
+                print(f"[mio] preset missing: {path} (run ./setup.sh)")
+                continue
+            try:
+                try:
+                    obj = torch.load(str(path), map_location="cpu", weights_only=True)
+                except Exception:
+                    obj = torch.load(str(path), map_location="cpu", weights_only=False)
+                emb = self._prepare_embedding(obj)
+                self.presets[name] = emb
+            except Exception as exc:
+                print(f"[mio] failed to load preset {name}: {exc}")
+        self.voices = list(self.presets.keys())
+        if not self.voices:
+            print("[mio] WARNING: no speaker presets loaded -> TTS decode will fail")
+        else:
+            print(f"[mio] presets loaded: {self.voices}")
+
+    def _prepare_embedding(self, obj):
+        """Normalize a preset payload to a 1D float tensor on the codec device."""
+        import torch
+
+        if isinstance(obj, dict):
+            obj = obj.get("global_embedding") or obj.get("embedding") \
+                or next(iter(obj.values()))
+        if not torch.is_tensor(obj):
+            obj = torch.as_tensor(obj)
+        return obj.squeeze().flatten().float().to(self.codec_device)
+
+    def global_embedding(self, voice: Optional[str]):
+        """Return the global embedding for a voice (falls back to default/first)."""
+        if voice and voice in self.presets:
+            return self.presets[voice]
+        dv = self.config["mio"].get("default_preset")
+        if dv in self.presets:
+            return self.presets[dv]
+        return next(iter(self.presets.values())) if self.presets else None
 
     def _warmup(self) -> None:
         try:
             from mio_session import synth_blocking
 
             print("[mio] warming up ...")
-            list(synth_blocking(self, "नमस्ते।"))
+            list(synth_blocking(self, "नमस्ते।", voice=self.config["mio"].get("default_preset")))
         except Exception as exc:
             print(f"[mio] warmup skipped ({exc})")
 
